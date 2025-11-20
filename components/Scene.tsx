@@ -3,8 +3,8 @@ import React, { Suspense, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import { DataNode } from './DataNode';
-import { DataPoint, JobCategory } from '../types';
-import { SEGMENTS_ORDERED, CONTEXTS_ORDERED } from '../utils/dataGenerator';
+import { DataPoint, JobCategory, JourneyStage, ImpactLevel } from '../types';
+import { SEGMENTS_ORDERED, CONTEXTS_ORDERED, JOBS_ORDERED } from '../utils/dataGenerator';
 import * as THREE from 'three';
 
 interface SceneProps {
@@ -13,6 +13,8 @@ interface SceneProps {
   activeSegmentIndex: number | null; // Z Axis
   activeContextIndex: number | null; // Y Axis
   activeJobCategory: JobCategory | null; // X Axis
+  selectedStages: JourneyStage[]; // Color/Stage Filter (Multi-select)
+  selectedImpactLevels: ImpactLevel[]; // Impact Filter (Multi-select)
   onNodeSelect: (data: DataPoint) => void;
 }
 
@@ -63,24 +65,22 @@ const ContextSlice: React.FC<{ index: number }> = ({ index }) => {
 };
 
 // --- X-AXIS SLICE (Jobs) ---
+// Updated to support standard 10-slot grid
 const JobSlice: React.FC<{ category: JobCategory }> = ({ category }) => {
-  // Map Category to Approximate X Center based on generator logic
-  let xPos = 0;
-  let color = "#ffffff";
-  
-  if (category === JobCategory.UPDATE_WARDROBE) { xPos = -6; color = "#3b82f6"; }
-  if (category === JobCategory.REPLACE_ITEM) { xPos = 6; color = "#ef4444"; }
-  if (category === JobCategory.FIND_FIT) { xPos = 0; color = "#22c55e"; }
+  const index = JOBS_ORDERED.indexOf(category);
+  // Map index 0-9 to coordinate -9 to +9
+  const xPos = index !== -1 ? -9 + (index * 2) : 0;
+  const color = "#38bdf8"; // Sky Blue for X-Axis
 
   return (
     <group position={[xPos, 0, 0]}>
-      {/* Plane (YZ) - Wider slice for X because data is more scattered */}
+      {/* Plane (YZ) */}
       <mesh>
-        <boxGeometry args={[4, 20, 20]} />
+        <boxGeometry args={[2, 20, 20]} />
         <meshBasicMaterial color={color} transparent opacity={0.05} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(4, 20, 20)]} />
+        <edgesGeometry args={[new THREE.BoxGeometry(2, 20, 20)]} />
         <lineBasicMaterial color={color} opacity={0.3} transparent />
       </lineSegments>
       <Text position={[0, 11, 0]} fontSize={0.5} color={color} anchorY="bottom">
@@ -90,22 +90,96 @@ const JobSlice: React.FC<{ category: JobCategory }> = ({ category }) => {
   );
 };
 
+// --- INTERSECTION HIGHLIGHT ---
+const IntersectionHighlight: React.FC<{
+  activeSegmentIndex: number | null;
+  activeContextIndex: number | null;
+  activeJobCategory: JobCategory | null;
+}> = ({ activeSegmentIndex, activeContextIndex, activeJobCategory }) => {
+  
+  const filters = [activeSegmentIndex !== null, activeContextIndex !== null, activeJobCategory !== null];
+  const activeCount = filters.filter(Boolean).length;
+
+  if (activeCount < 2) return null;
+
+  let position: [number, number, number] = [0, 0, 0];
+  let args: [number, number, number] = [1, 1, 1];
+
+  const z = activeSegmentIndex !== null ? -9 + (activeSegmentIndex * 2) : 0;
+  const y = activeContextIndex !== null ? -9 + (activeContextIndex * 2) : 0;
+  
+  // Calculate X based on index of category
+  const jobIndex = activeJobCategory ? JOBS_ORDERED.indexOf(activeJobCategory) : 0;
+  const x = -9 + (jobIndex * 2);
+
+  // 10x10x10 Grid -> Cell Size is 2x2x2
+  
+  if (activeCount === 3) {
+    position = [x, y, z];
+    args = [2, 2, 2]; // Single Cell
+  }
+  else if (activeJobCategory !== null && activeContextIndex !== null) {
+    position = [x, y, 0];
+    args = [2, 2, 20]; // Vertical Column (Depth 20)
+  }
+  else if (activeJobCategory !== null && activeSegmentIndex !== null) {
+    position = [x, 0, z];
+    args = [2, 20, 2]; // Horizontal Column (Height 20)
+  }
+  else if (activeContextIndex !== null && activeSegmentIndex !== null) {
+    position = [0, y, z];
+    args = [20, 2, 2]; // Horizontal Bar (Width 20)
+  }
+
+  return (
+    <group position={position}>
+      <mesh>
+        <boxGeometry args={args} />
+        <meshBasicMaterial 
+          color="#ffffff" 
+          transparent 
+          opacity={0.25} 
+          blending={THREE.AdditiveBlending} 
+          depthWrite={false} 
+        />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(...args)]} />
+        <lineBasicMaterial color="#fbbf24" opacity={1} transparent linewidth={2} />
+      </lineSegments>
+       <mesh>
+        <boxGeometry args={args} />
+        <meshBasicMaterial 
+          color="#fbbf24" 
+          transparent 
+          opacity={0.05} 
+          depthWrite={false} 
+        />
+      </mesh>
+    </group>
+  );
+};
+
 const Connections: React.FC<{ 
   data: DataPoint[], 
   activeSegmentIndex: number | null,
   activeContextIndex: number | null,
-  activeJobCategory: JobCategory | null
-}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory }) => {
+  activeJobCategory: JobCategory | null,
+  selectedStages: JourneyStage[],
+  selectedImpactLevels: ImpactLevel[]
+}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels }) => {
   
   const geometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
-    const threshold = 3.5; 
+    const threshold = 2.5;
 
     // Helper to check if a point matches all active filters
     const isVisible = (p: DataPoint) => {
       if (activeSegmentIndex !== null && p.segmentIndex !== activeSegmentIndex) return false;
       if (activeContextIndex !== null && p.contextIndex !== activeContextIndex) return false;
       if (activeJobCategory !== null && p.jobCategory !== activeJobCategory) return false;
+      if (selectedStages.length > 0 && !selectedStages.includes(p.journeyStage)) return false;
+      if (selectedImpactLevels.length > 0 && !selectedImpactLevels.includes(p.impactLevel)) return false;
       return true;
     };
 
@@ -119,6 +193,7 @@ const Connections: React.FC<{
         const p2 = data[j];
         if (!isVisible(p2)) continue;
 
+        // Only connect nodes of same category
         if (p1.jobCategory !== p2.jobCategory) continue;
 
         const v2 = new THREE.Vector3(...p2.position);
@@ -129,7 +204,7 @@ const Connections: React.FC<{
       }
     }
     return new THREE.BufferGeometry().setFromPoints(points);
-  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory]);
+  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels]);
 
   if (geometry.attributes.position.count === 0) return null;
 
@@ -159,10 +234,10 @@ const FullCage: React.FC<{ isFiltered: boolean }> = ({ isFiltered }) => {
 }
 
 const SceneContent: React.FC<SceneProps> = ({ 
-  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, onNodeSelect 
+  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels, onNodeSelect 
 }) => {
   const orbitRef = useRef<any>(null);
-  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null;
+  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
 
   return (
     <>
@@ -195,19 +270,36 @@ const SceneContent: React.FC<SceneProps> = ({
       {activeContextIndex !== null && <ContextSlice index={activeContextIndex} />}
       {activeJobCategory !== null && <JobSlice category={activeJobCategory} />}
 
+      {/* Intersection Highlight */}
+      <IntersectionHighlight 
+        activeSegmentIndex={activeSegmentIndex} 
+        activeContextIndex={activeContextIndex} 
+        activeJobCategory={activeJobCategory} 
+      />
+
       <Connections 
         data={data} 
         activeSegmentIndex={activeSegmentIndex} 
         activeContextIndex={activeContextIndex}
         activeJobCategory={activeJobCategory}
+        selectedStages={selectedStages}
+        selectedImpactLevels={selectedImpactLevels}
       />
 
       {data.map((point) => {
-        // Visibility Logic: A point is dimmed if it FAILS any active filter
+        // Visibility Logic
         let isDimmed = false;
+        
+        // Axis Filters
         if (activeSegmentIndex !== null && point.segmentIndex !== activeSegmentIndex) isDimmed = true;
         if (activeContextIndex !== null && point.contextIndex !== activeContextIndex) isDimmed = true;
         if (activeJobCategory !== null && point.jobCategory !== activeJobCategory) isDimmed = true;
+        
+        // Stage Filter (Multi-select)
+        if (selectedStages.length > 0 && !selectedStages.includes(point.journeyStage)) isDimmed = true;
+
+        // Impact Filter (Multi-select)
+        if (selectedImpactLevels.length > 0 && !selectedImpactLevels.includes(point.impactLevel)) isDimmed = true;
 
         return (
           <group key={point.id}> 

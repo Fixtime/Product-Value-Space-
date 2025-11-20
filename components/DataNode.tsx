@@ -36,9 +36,8 @@ export const DataNode: React.FC<DataNodeProps> = ({ data, isSelected, isDimmed =
     }
   });
 
-  // If dimmed, we can either hide it completely or make it very faint
-  // For performance and clarity, if heavily filtered, maybe render a tiny dot or nothing.
-  // Let's use transparency.
+  // Use MeshPhysicalMaterial for a more volumetric, glossy look
+  // Lower emissive intensity + clearcoat = shiny, shaded spheres instead of flat glowing circles
   
   return (
     <group 
@@ -63,12 +62,16 @@ export const DataNode: React.FC<DataNodeProps> = ({ data, isSelected, isDimmed =
         }}
       >
         <sphereGeometry args={[1, 32, 32]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color={isSelected ? '#ffffff' : data.color}
           emissive={data.color}
-          emissiveIntensity={isSelected || (hovered && !isDimmed) ? 2 : 0.6}
-          roughness={0.2}
-          metalness={0.8}
+          // Significantly reduced emissive intensity so shadows and highlights are visible
+          emissiveIntensity={isSelected || (hovered && !isDimmed) ? 0.8 : 0.15} 
+          roughness={0.1}   // Low roughness for shiny surface
+          metalness={0.1}   // Low metalness (dielectric/plastic look)
+          clearcoat={1.0}   // Add a clear coat layer (like polish)
+          clearcoatRoughness={0.1}
+          reflectivity={0.5}
           transparent
           opacity={isDimmed ? 0.05 : 1} 
           depthWrite={!isDimmed}
