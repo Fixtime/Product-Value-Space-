@@ -3,76 +3,121 @@ import React, { Suspense, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import { DataNode } from './DataNode';
-import { DataPoint } from '../types';
-import { SEGMENTS_ORDERED } from '../utils/dataGenerator';
+import { DataPoint, JobCategory } from '../types';
+import { SEGMENTS_ORDERED, CONTEXTS_ORDERED } from '../utils/dataGenerator';
 import * as THREE from 'three';
 
 interface SceneProps {
   data: DataPoint[];
   selectedId: string | null;
-  activeSegmentIndex: number | null;
+  activeSegmentIndex: number | null; // Z Axis
+  activeContextIndex: number | null; // Y Axis
+  activeJobCategory: JobCategory | null; // X Axis
   onNodeSelect: (data: DataPoint) => void;
 }
 
-// Visual Slice Component for Segment Highlighting
+// --- Z-AXIS SLICE (Segments) ---
 const SegmentSlice: React.FC<{ index: number }> = ({ index }) => {
-  // Map index 0-9 to coordinate -9 to +9
   const zPos = -9 + (index * 2);
   const segmentName = SEGMENTS_ORDERED[index];
   
   return (
     <group position={[0, 0, zPos]}>
-      {/* The plane representing the slice */}
-      <mesh rotation={[0, 0, 0]}>
-        <boxGeometry args={[20, 20, 2]} /> {/* Width, Height, Depth */}
-        <meshBasicMaterial 
-          color="#ffffff" 
-          transparent 
-          opacity={0.05} 
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+      {/* Plane (XY) */}
+      <mesh>
+        <boxGeometry args={[20, 20, 2]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.05} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-      
-      {/* Border for the slice */}
       <lineSegments>
         <edgesGeometry args={[new THREE.BoxGeometry(20, 20, 2)]} />
-        <lineBasicMaterial color="#ffffff" opacity={0.5} transparent />
+        <lineBasicMaterial color="#ffffff" opacity={0.3} transparent />
       </lineSegments>
-
-      {/* Label */}
-      <Text 
-        position={[11, 9, 0]} 
-        fontSize={0.5} 
-        color="#ffffff" 
-        anchorX="left"
-        rotation={[0, -Math.PI / 4, 0]}
-      >
+      <Text position={[11, 9, 0]} fontSize={0.5} color="#ffffff" anchorX="left" rotation={[0, -Math.PI / 4, 0]}>
         {segmentName}
       </Text>
     </group>
   );
 };
 
-// Component to render neural connections
-const Connections: React.FC<{ data: DataPoint[], activeSegmentIndex: number | null }> = ({ data, activeSegmentIndex }) => {
+// --- Y-AXIS SLICE (Contexts) ---
+const ContextSlice: React.FC<{ index: number }> = ({ index }) => {
+  const yPos = -9 + (index * 2);
+  const contextName = CONTEXTS_ORDERED[index];
+
+  return (
+    <group position={[0, yPos, 0]}>
+      {/* Plane (XZ) */}
+      <mesh>
+        <boxGeometry args={[20, 2, 20]} /> 
+        <meshBasicMaterial color="#a855f7" transparent opacity={0.05} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(20, 2, 20)]} />
+        <lineBasicMaterial color="#a855f7" opacity={0.3} transparent />
+      </lineSegments>
+      <Text position={[0, 0, 11]} fontSize={0.5} color="#a855f7" anchorX="center" rotation={[-Math.PI / 4, 0, 0]}>
+        {contextName}
+      </Text>
+    </group>
+  );
+};
+
+// --- X-AXIS SLICE (Jobs) ---
+const JobSlice: React.FC<{ category: JobCategory }> = ({ category }) => {
+  // Map Category to Approximate X Center based on generator logic
+  let xPos = 0;
+  let color = "#ffffff";
+  
+  if (category === JobCategory.UPDATE_WARDROBE) { xPos = -6; color = "#3b82f6"; }
+  if (category === JobCategory.REPLACE_ITEM) { xPos = 6; color = "#ef4444"; }
+  if (category === JobCategory.FIND_FIT) { xPos = 0; color = "#22c55e"; }
+
+  return (
+    <group position={[xPos, 0, 0]}>
+      {/* Plane (YZ) - Wider slice for X because data is more scattered */}
+      <mesh>
+        <boxGeometry args={[4, 20, 20]} />
+        <meshBasicMaterial color={color} transparent opacity={0.05} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(4, 20, 20)]} />
+        <lineBasicMaterial color={color} opacity={0.3} transparent />
+      </lineSegments>
+      <Text position={[0, 11, 0]} fontSize={0.5} color={color} anchorY="bottom">
+        {category}
+      </Text>
+    </group>
+  );
+};
+
+const Connections: React.FC<{ 
+  data: DataPoint[], 
+  activeSegmentIndex: number | null,
+  activeContextIndex: number | null,
+  activeJobCategory: JobCategory | null
+}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory }) => {
+  
   const geometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const threshold = 3.5; 
 
+    // Helper to check if a point matches all active filters
+    const isVisible = (p: DataPoint) => {
+      if (activeSegmentIndex !== null && p.segmentIndex !== activeSegmentIndex) return false;
+      if (activeContextIndex !== null && p.contextIndex !== activeContextIndex) return false;
+      if (activeJobCategory !== null && p.jobCategory !== activeJobCategory) return false;
+      return true;
+    };
+
     for (let i = 0; i < data.length; i++) {
       const p1 = data[i];
-      
-      // Don't draw connections originating from hidden segments
-      if (activeSegmentIndex !== null && p1.segmentIndex !== activeSegmentIndex) continue;
+      if (!isVisible(p1)) continue;
 
       const v1 = new THREE.Vector3(...p1.position);
       
       for (let j = i + 1; j < data.length; j++) {
         const p2 = data[j];
-        
-        // Don't draw connections to hidden segments
-        if (activeSegmentIndex !== null && p2.segmentIndex !== activeSegmentIndex) continue;
+        if (!isVisible(p2)) continue;
 
         if (p1.jobCategory !== p2.jobCategory) continue;
 
@@ -84,7 +129,7 @@ const Connections: React.FC<{ data: DataPoint[], activeSegmentIndex: number | nu
       }
     }
     return new THREE.BufferGeometry().setFromPoints(points);
-  }, [data, activeSegmentIndex]);
+  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory]);
 
   if (geometry.attributes.position.count === 0) return null;
 
@@ -93,7 +138,7 @@ const Connections: React.FC<{ data: DataPoint[], activeSegmentIndex: number | nu
       <lineBasicMaterial 
         color="#ffffff" 
         transparent 
-        opacity={activeSegmentIndex !== null ? 0.2 : 0.1} 
+        opacity={0.15} 
         blending={THREE.AdditiveBlending} 
         depthWrite={false}
       />
@@ -102,29 +147,22 @@ const Connections: React.FC<{ data: DataPoint[], activeSegmentIndex: number | nu
 };
 
 const FullCage: React.FC<{ isFiltered: boolean }> = ({ isFiltered }) => {
-    // When not filtered (inactive), make opacity higher to look "white"
-    // When filtered, dim the cage to let the slice focus
     const opacity = isFiltered ? 0.05 : 0.25;
     return (
         <group>
-             {/* Bottom Grid (XZ) */}
             <gridHelper position={[0, -10, 0]} args={[20, 10, 0xffffff, 0xffffff]} material-opacity={opacity} material-transparent />
-             {/* Top Grid (XZ) */}
             <gridHelper position={[0, 10, 0]} args={[20, 10, 0xffffff, 0xffffff]} material-opacity={opacity} material-transparent />
-             {/* Back Grid (XY) */}
             <gridHelper position={[0, 0, -10]} rotation={[Math.PI/2, 0, 0]} args={[20, 10, 0xffffff, 0xffffff]} material-opacity={opacity} material-transparent />
-            {/* Left Grid (YZ) */}
             <gridHelper position={[-10, 0, 0]} rotation={[0, 0, Math.PI/2]} args={[20, 10, 0xffffff, 0xffffff]} material-opacity={opacity} material-transparent />
         </group>
     )
 }
 
-const SceneContent: React.FC<SceneProps> = ({ data, selectedId, activeSegmentIndex, onNodeSelect }) => {
+const SceneContent: React.FC<SceneProps> = ({ 
+  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, onNodeSelect 
+}) => {
   const orbitRef = useRef<any>(null);
-
-  useFrame((state) => {
-    // Optional camera easing logic could go here
-  });
+  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null;
 
   return (
     <>
@@ -133,7 +171,7 @@ const SceneContent: React.FC<SceneProps> = ({ data, selectedId, activeSegmentInd
         enablePan={true} 
         enableZoom={true} 
         enableRotate={true} 
-        autoRotate={!selectedId && activeSegmentIndex === null} 
+        autoRotate={!selectedId && !isFiltered} 
         autoRotateSpeed={0.5}
         maxDistance={50}
         minDistance={2}
@@ -144,22 +182,32 @@ const SceneContent: React.FC<SceneProps> = ({ data, selectedId, activeSegmentInd
       <pointLight position={[-15, -15, -15]} intensity={0.5} color="#4f46e5" />
       <Stars radius={100} depth={50} count={7000} factor={4} saturation={0} fade speed={0.5} />
 
-      <FullCage isFiltered={activeSegmentIndex !== null} />
+      <FullCage isFiltered={isFiltered} />
 
-      {/* Axis Labels */}
       <group>
-        <Text position={[11, 0, 0]} fontSize={0.6} color="#ffffff" anchorX="left">Проблема (X)</Text>
+        <Text position={[11, 0, 0]} fontSize={0.6} color="#ffffff" anchorX="left">Customer Job (X)</Text>
         <Text position={[0, 11, 0]} fontSize={0.6} color="#ffffff" anchorY="bottom">Контекст (Y)</Text>
         <Text position={[0, 0, 11]} fontSize={0.6} color="#ffffff" anchorX="right">Сегмент (Z)</Text>
       </group>
 
-      {/* Visual Slice Highlight */}
+      {/* Visual Slice Highlights */}
       {activeSegmentIndex !== null && <SegmentSlice index={activeSegmentIndex} />}
+      {activeContextIndex !== null && <ContextSlice index={activeContextIndex} />}
+      {activeJobCategory !== null && <JobSlice category={activeJobCategory} />}
 
-      <Connections data={data} activeSegmentIndex={activeSegmentIndex} />
+      <Connections 
+        data={data} 
+        activeSegmentIndex={activeSegmentIndex} 
+        activeContextIndex={activeContextIndex}
+        activeJobCategory={activeJobCategory}
+      />
 
       {data.map((point) => {
-        const isDimmed = activeSegmentIndex !== null && point.segmentIndex !== activeSegmentIndex;
+        // Visibility Logic: A point is dimmed if it FAILS any active filter
+        let isDimmed = false;
+        if (activeSegmentIndex !== null && point.segmentIndex !== activeSegmentIndex) isDimmed = true;
+        if (activeContextIndex !== null && point.contextIndex !== activeContextIndex) isDimmed = true;
+        if (activeJobCategory !== null && point.jobCategory !== activeJobCategory) isDimmed = true;
 
         return (
           <group key={point.id}> 

@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { DataPoint } from '../types';
-import { X, Activity, Users, User, Smartphone, MessageSquare, ArrowRight, Link } from 'lucide-react';
+import { X, Activity, User, Smartphone, ArrowRight, Link, MessageSquare, Briefcase } from 'lucide-react';
 
 interface UIOverlayProps {
   selectedData: DataPoint | null;
@@ -61,14 +61,11 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({ selectedData, allData, onC
           </button>
         </div>
 
-        {/* Main Description */}
+        {/* Main Description (Problem Name) */}
         <div className="mb-6 relative z-10">
-          <h3 className="mb-2 text-lg font-semibold text-white leading-tight">
-            {selectedData.jobCategory}
-          </h3>
-          <p className="text-sm text-slate-300 italic border-l-2 border-white/20 pl-3 py-1">
+          <h3 className="text-lg font-semibold text-white leading-snug">
             "{selectedData.description}"
-          </p>
+          </h3>
         </div>
 
         {/* Metrics Grid */}
@@ -88,14 +85,14 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({ selectedData, allData, onC
               <MessageSquare size={12} />
               <span>Источник</span>
             </div>
-             <div className="text-sm font-medium text-white leading-tight">
+             <div className="text-xs font-medium text-white leading-tight mt-1">
                {selectedData.source}
             </div>
           </div>
         </div>
 
         {/* Detailed Context Blocks */}
-        <div className="space-y-3 mb-6 relative z-10">
+        <div className="space-y-2 mb-6 relative z-10">
           
           {/* Segment (Z-Axis) */}
           <div className="rounded-lg bg-white/5 p-3 border border-white/5 flex items-start gap-3">
@@ -116,6 +113,17 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({ selectedData, allData, onC
             <div>
               <div className="text-xs text-slate-400 mb-0.5">Контекст (Ось Y)</div>
               <div className="text-sm font-medium text-white">{selectedData.context}</div>
+            </div>
+          </div>
+
+          {/* Customer Job (X-Axis) */}
+          <div className="rounded-lg bg-white/5 p-3 border border-white/5 flex items-start gap-3">
+             <div className="mt-1 p-1.5 rounded bg-orange-500/20 text-orange-400">
+              <Briefcase size={16} />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 mb-0.5">Customer Job (Ось X)</div>
+              <div className="text-sm font-medium text-white leading-tight">{selectedData.jobCategory}</div>
             </div>
           </div>
 

@@ -1,16 +1,20 @@
 
 import React, { useState, useMemo } from 'react';
-import { generateData, SEGMENTS_ORDERED } from './utils/dataGenerator';
+import { generateData, SEGMENTS_ORDERED, CONTEXTS_ORDERED } from './utils/dataGenerator';
 import { Scene } from './components/Scene';
 import { UIOverlay } from './components/UIOverlay';
-import { DataPoint } from './types';
-import { Layers } from 'lucide-react';
+import { DataPoint, JobCategory } from './types';
+import { Layers, Smartphone, Briefcase, Filter } from 'lucide-react';
 
 const App: React.FC = () => {
   const data = useMemo(() => generateData(600), []);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null);
+  
+  // Filter States
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null); // Z
+  const [activeContextIndex, setActiveContextIndex] = useState<number | null>(null); // Y
+  const [activeJobCategory, setActiveJobCategory] = useState<JobCategory | null>(null); // X
 
   const handleNodeSelect = (node: DataPoint) => {
     setSelectedId(node.id);
@@ -25,6 +29,14 @@ const App: React.FC = () => {
     [data, selectedId]
   );
 
+  const resetFilters = () => {
+    setActiveSegmentIndex(null);
+    setActiveContextIndex(null);
+    setActiveJobCategory(null);
+  }
+
+  const hasActiveFilters = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null;
+
   return (
     <div className="relative w-full h-screen bg-slate-950 overflow-hidden font-sans">
       
@@ -34,6 +46,8 @@ const App: React.FC = () => {
           data={data} 
           selectedId={selectedId} 
           activeSegmentIndex={activeSegmentIndex}
+          activeContextIndex={activeContextIndex}
+          activeJobCategory={activeJobCategory}
           onNodeSelect={handleNodeSelect} 
         />
       </div>
@@ -48,59 +62,95 @@ const App: React.FC = () => {
         </p>
       </div>
 
-      {/* Segment Selector (Left Sidebar) */}
-      <div className="absolute top-24 left-4 z-10 w-64">
-        <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-2xl">
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10 text-slate-300">
-            <Layers size={14} />
-            <span className="text-xs font-bold uppercase">Сегменты (Ось Z)</span>
-          </div>
-          
-          <div className="space-y-1 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
-            {SEGMENTS_ORDERED.map((segment, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveSegmentIndex(activeSegmentIndex === index ? null : index)}
-                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-all flex items-center justify-between group ${
-                  activeSegmentIndex === index 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                }`}
-              >
-                <span>{segment}</span>
-                {activeSegmentIndex === index && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-              </button>
-            ))}
-          </div>
-          
-          {activeSegmentIndex !== null && (
-            <button 
-                onClick={() => setActiveSegmentIndex(null)}
-                className="mt-3 w-full py-1 text-[10px] text-center text-slate-500 hover:text-slate-300 uppercase tracking-wider border border-dashed border-slate-700 rounded hover:border-slate-500"
-            >
-                Сбросить фильтр
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Combined Filter Sidebar */}
+      <div className="absolute top-24 left-4 z-10 w-64 flex flex-col gap-3 max-h-[80vh]">
+        
+        {/* SCROLLABLE CONTAINER FOR ALL LISTS */}
+        <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1 pb-2">
+            
+            {/* X-AXIS: Jobs */}
+            <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
+              <div className="flex items-center gap-2 mb-2 text-slate-300">
+                <Briefcase size={14} className="text-orange-400" />
+                <span className="text-xs font-bold uppercase">Customer Jobs (Ось X)</span>
+              </div>
+              <div className="space-y-1">
+                {Object.values(JobCategory).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveJobCategory(activeJobCategory === cat ? null : cat)}
+                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${
+                      activeJobCategory === cat 
+                        ? 'bg-orange-600 text-white' 
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className="truncate">{cat}</span>
+                    {activeJobCategory === cat && <div className="w-1 h-1 rounded-full bg-white" />}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* Legend (Bottom Left) */}
-      <div className="absolute bottom-6 left-6 z-10 pointer-events-none bg-slate-900/80 backdrop-blur-sm p-4 rounded-lg border border-white/10">
-        <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">Типы проблем</h3>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>
-            <span className="text-xs text-slate-200">Обновить гардероб</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
-            <span className="text-xs text-slate-200">Найти замену</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-            <span className="text-xs text-slate-200">Нестандартная фигура</span>
-          </div>
+            {/* Z-AXIS: Segments */}
+            <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
+            <div className="flex items-center gap-2 mb-2 text-slate-300">
+                <Layers size={14} className="text-blue-400" />
+                <span className="text-xs font-bold uppercase">Сегменты (Ось Z)</span>
+            </div>
+            <div className="space-y-0.5">
+                {SEGMENTS_ORDERED.map((segment, index) => (
+                <button
+                    key={index}
+                    onClick={() => setActiveSegmentIndex(activeSegmentIndex === index ? null : index)}
+                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${
+                    activeSegmentIndex === index 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                >
+                    <span className="truncate">{segment}</span>
+                    {activeSegmentIndex === index && <div className="w-1 h-1 rounded-full bg-white" />}
+                </button>
+                ))}
+            </div>
+            </div>
+
+            {/* Y-AXIS: Contexts */}
+            <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
+            <div className="flex items-center gap-2 mb-2 text-slate-300">
+                <Smartphone size={14} className="text-purple-400" />
+                <span className="text-xs font-bold uppercase">Контексты (Ось Y)</span>
+            </div>
+            <div className="space-y-0.5">
+                {CONTEXTS_ORDERED.map((context, index) => (
+                <button
+                    key={index}
+                    onClick={() => setActiveContextIndex(activeContextIndex === index ? null : index)}
+                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${
+                    activeContextIndex === index 
+                        ? 'bg-purple-600 text-white' 
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                >
+                    <span className="truncate">{context}</span>
+                    {activeContextIndex === index && <div className="w-1 h-1 rounded-full bg-white" />}
+                </button>
+                ))}
+            </div>
+            </div>
         </div>
+
+        {/* RESET BUTTON */}
+        {hasActiveFilters && (
+            <button 
+                onClick={resetFilters}
+                className="bg-slate-900/90 backdrop-blur border border-red-900/30 text-red-400 hover:text-white hover:bg-red-900/50 p-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xl flex-shrink-0"
+            >
+                <Filter size={12} />
+                Сбросить фильтры
+            </button>
+        )}
       </div>
 
       {/* UI Overlay */}
