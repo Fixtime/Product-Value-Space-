@@ -1,0 +1,5 @@
+{
+  "name": "Product Value Space Visualizer",
+  "description": "A 3D interactive scatter plot visualizing product signals across Problem, Context, and User vectors using React Three Fiber.",
+  "requestFramePermissions": []
+}
