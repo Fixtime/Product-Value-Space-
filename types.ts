@@ -1,5 +1,5 @@
 
-import 'react';
+import React from 'react';
 
 export enum JobCategory {
   UPDATE_WARDROBE = 'Обновить гардероб к новому сезону',
@@ -16,7 +16,9 @@ export interface DataPoint {
   color: string;
   source: string;
   segment: string;
+  segmentIndex: number; // 0-9 position on Z axis
   context: string;
+  contextIndex: number; // 0-9 position on Y axis
 }
 
 export interface AppState {
@@ -40,14 +42,8 @@ interface CustomThreeElements {
   bufferGeometry: any;
   bufferAttribute: any;
   lineBasicMaterial: any;
+  edgesGeometry: any; // Added for edges
   [elemName: string]: any;
-}
-
-// Augment the 'react' module's JSX.IntrinsicElements (for newer React types)
-declare module 'react' {
-  namespace JSX {
-    interface IntrinsicElements extends CustomThreeElements {}
-  }
 }
 
 // Augment the global JSX.IntrinsicElements (for older React types / global JSX)

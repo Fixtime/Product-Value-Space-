@@ -1,11 +1,11 @@
 
 import { DataPoint, JobCategory } from '../types';
 
-// Updated colors to match the Red/Blue/Green reference style
-const CATEGORY_CONFIG = {
-  [JobCategory.UPDATE_WARDROBE]: { color: '#3b82f6', center: [-4, 4, -4] }, // Blue
-  [JobCategory.REPLACE_ITEM]: { color: '#ef4444', center: [4, -4, 0] }, // Red
-  [JobCategory.FIND_FIT]: { color: '#22c55e', center: [0, 4, 4] }, // Green
+// Colors for Jobs (X Axis influence)
+const JOB_COLORS = {
+  [JobCategory.UPDATE_WARDROBE]: '#3b82f6', // Blue
+  [JobCategory.REPLACE_ITEM]: '#ef4444',    // Red
+  [JobCategory.FIND_FIT]: '#22c55e',        // Green
 };
 
 const DESCRIPTIONS = [
@@ -30,21 +30,34 @@ const SOURCES = [
   "Глубинные интервью"
 ];
 
-const SEGMENTS = [
-  "Студентка",
-  "Молодая мама",
-  "Офисный работник",
-  "Турист",
-  "Пенсионер",
-  "Фэшн-блогер"
+// Z-AXIS: User Segments (Ordered from Active/Young -> Passive/Old)
+// 10 Segments mapping from -10 to +10
+export const SEGMENTS_ORDERED = [
+  "Активные школьницы",           // Index 0 (Z: -9)
+  "Студентки ВУЗов",              // Index 1 (Z: -7)
+  "Молодые специалисты",          // Index 2 (Z: -5)
+  "Фрилансеры и цифровые кочевники", // Index 3 (Z: -3)
+  "Молодые мамы",                 // Index 4 (Z: -1)
+  "Офисные менеджеры",            // Index 5 (Z: 1)
+  "Руководители бизнеса",         // Index 6 (Z: 3)
+  "Предприниматели 45+",          // Index 7 (Z: 5)
+  "Активные пенсионеры",          // Index 8 (Z: 7)
+  "Пенсионеры с ограничениями"    // Index 9 (Z: 9)
 ];
 
-const CONTEXTS = [
-  "Мобильный браузер (вечер)",
-  "Десктоп (рабочий перерыв)",
-  "iOS приложение (утро)",
-  "Android приложение (в пути)",
-  "Планшет (выходные)"
+// Y-AXIS: Contexts (Ordered by Situation Intensity/Time)
+// 10 Contexts mapping from -10 (Low energy/Private) to +10 (High energy/Public)
+export const CONTEXTS_ORDERED = [
+  "Дома в постели (ночь)",        // Index 0
+  "Утренний кофе (планшет)",      // Index 1
+  "Поездка в транспорте (телефон)", // Index 2
+  "На бегу (быстрый поиск)",      // Index 3
+  "Обеденный перерыв (десктоп)",  // Index 4
+  "Рабочее время (фоном)",        // Index 5
+  "Вечерний шопинг (ноутбук)",    // Index 6
+  "В магазине (сравнение цен)",   // Index 7
+  "Срочная покупка перед выездом",// Index 8
+  "Критическая ситуация (порвалось)", // Index 9
 ];
 
 function generateRandomNormal(mean: number, stdDev: number): number {
@@ -54,31 +67,58 @@ function generateRandomNormal(mean: number, stdDev: number): number {
   return z * stdDev + mean;
 }
 
-export const generateData = (count: number = 500): DataPoint[] => {
+// Map an index (0-9) to a coordinate (-9 to +9) with jitter
+function mapIndexToCoordinate(index: number, jitter: number = 0.8): number {
+  // Range is -10 to 10 (size 20). 10 slots. Each slot is 2 units wide.
+  // Slot 0 center: -9. Slot 9 center: +9.
+  const center = -9 + (index * 2);
+  return generateRandomNormal(center, jitter);
+}
+
+export const generateData = (count: number = 600): DataPoint[] => {
   const data: DataPoint[] = [];
-  const categories = Object.values(JobCategory);
+  const jobCategories = Object.values(JobCategory);
 
   for (let i = 0; i < count; i++) {
-    // Assign a random category
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const config = CATEGORY_CONFIG[category];
+    // 1. Pick Segment (Z Axis)
+    // We use a weighted random to simulate real population distribution (more in middle)
+    let segmentIndex = Math.floor(Math.random() * 10);
+    // Let's cluster slightly more towards indexes 1-5 (younger active shoppers)
+    if (Math.random() > 0.7) {
+        segmentIndex = Math.floor(Math.random() * 6); 
+    }
+    const z = mapIndexToCoordinate(segmentIndex);
+
+    // 2. Pick Context (Y Axis)
+    // Random distribution
+    const contextIndex = Math.floor(Math.random() * 10);
+    const y = mapIndexToCoordinate(contextIndex);
+
+    // 3. Pick Job (X Axis)
+    // Map Job to X coordinate roughly for clustering
+    // Update Wardrobe -> Left (-X)
+    // Replace Item -> Right (+X)
+    // Find Fit -> Middle/Scattered
+    const category = jobCategories[Math.floor(Math.random() * jobCategories.length)];
+    let xBase = 0;
+    if (category === JobCategory.UPDATE_WARDROBE) xBase = -6;
+    if (category === JobCategory.REPLACE_ITEM) xBase = 6;
+    if (category === JobCategory.FIND_FIT) xBase = 0;
     
-    // Generate position based on cluster center + noise to create organic clouds
-    // Clamping to -10 to 10 box
-    const x = Math.max(-10, Math.min(10, generateRandomNormal(config.center[0], 3)));
-    const y = Math.max(-10, Math.min(10, generateRandomNormal(config.center[1], 3)));
-    const z = Math.max(-10, Math.min(10, generateRandomNormal(config.center[2], 3)));
+    const x = generateRandomNormal(xBase, 2.5); // Wider spread on X to create overlap
 
     data.push({
-      id: `sig-${1000 + i}`, // slightly more realistic ID
+      id: `sig-${1000 + i}`,
       position: [x, y, z],
       jobCategory: category,
-      impactScore: 0.2 + Math.random() * 1.5, // Slightly larger minimum size
+      impactScore: 0.4 + Math.random() * 1.1,
       description: DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)],
-      color: config.color,
+      color: JOB_COLORS[category],
       source: SOURCES[Math.floor(Math.random() * SOURCES.length)],
-      segment: SEGMENTS[Math.floor(Math.random() * SEGMENTS.length)],
-      context: CONTEXTS[Math.floor(Math.random() * CONTEXTS.length)]
+      segment: SEGMENTS_ORDERED[segmentIndex],
+      segmentIndex: segmentIndex,
+      context: CONTEXTS_ORDERED[contextIndex],
+      contextIndex: contextIndex
     });
   }
 
