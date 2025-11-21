@@ -35,14 +35,25 @@ export enum ImpactLevel {
 export interface DataPoint {
   id: string;
   position: [number, number, number]; // [x, y, z]
+  
+  // Cluster/Parent Info
+  clusterName: string; // The High-Level Problem Name
+  
+  // Signal Info
+  description: string; // The Low-Level Specific Signal Text
+  source: string; // Source of the signal (Logs, CRM, etc)
+  
+  // Dimensions
   jobCategory: JobCategory;
   jobIndex: number; // 0-9 position on X axis
   journeyStage: JourneyStage; 
+  
+  // Metrics (Inherited from Cluster)
   impactScore: number;
-  impactLevel: ImpactLevel; // Derived category for filtering
-  description: string;
+  impactLevel: ImpactLevel; 
+  
   color: string;
-  source: string;
+  
   segment: string;
   segmentIndex: number; // 0-9 position on Z axis
   context: string;

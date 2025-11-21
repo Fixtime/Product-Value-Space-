@@ -1,42 +1,116 @@
 
 import { DataPoint, JobCategory, JourneyStage, ImpactLevel } from '../types';
 
-// Colors mapped to Journey Stages
-const STAGE_COLORS = {
-  [JourneyStage.AWARENESS]: '#a855f7',     // Purple
-  [JourneyStage.CONSIDERATION]: '#3b82f6', // Blue
-  [JourneyStage.PURCHASE]: '#22c55e',      // Green
-  [JourneyStage.ONBOARDING]: '#facc15',    // Yellow
-  [JourneyStage.ACTIVE_USE]: '#ef4444',    // Red
-  [JourneyStage.RETENTION]: '#ec4899',     // Pink
-  [JourneyStage.ADVOCACY]: '#22d3ee',      // Cyan
+// Colors palette for Clusters (Distinct, high contrast)
+const CLUSTER_PALETTE = [
+  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', // Red, Orange, Amber, Lime, Emerald
+  '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', // Cyan, Blue, Indigo, Violet, Fuchsia
+  '#f43f5e', '#fbbf24', '#a3e635', '#34d399', '#22d3ee', // Rose, Amber, Lime, Emerald, Cyan
+  '#60a5fa', '#818cf8', '#a78bfa', '#e879f9', '#fb7185', // Light Blue, Indigo, Violet, Fuchsia, Rose
+  '#ff006e', '#8338ec', '#3a86ff', '#ffbe0b', '#fb5607', // Vibrant Set
+  '#00b4d8', '#e63946', '#2a9d8f', '#e9c46a', '#f4a261'  // Modern Set
+];
+
+// --- LOW LEVEL TEMPLATES MAPPED TO HIGH LEVEL CLUSTERS ---
+const PROBLEM_TEMPLATES: Record<string, string[]> = {
+  "Непонятно, какие модели сейчас актуальны": [
+    "Поисковый запрос «какие кроссовки в моде 2025»",
+    "Поисковый запрос «тренды пальто осень 2025»",
+    "Тикет: «Подскажите, какие джинсы сейчас актуальны?»",
+    "Чат: «Что сейчас носят вместо mom jeans?»",
+    "Отзыв: «Красивая модель, но боюсь, что уже не модно»",
+    "Отзыв WB: «Подруги сказали, что это прошлый сезон»",
+    "Поисковый запрос «тренды обуви весна с картинками»",
+    "Email: «Помогите подобрать актуальный образ, я не в теме»",
+    "Коммент Instagram: «А это точно сейчас модно?»",
+    "Поисковый запрос «цвета в моде осень-зима 2025»",
+    "Возврат: «Увидела, что такой крой уже не носят»",
+    "Отказ на стр. Новинки (вход по запросу «модное»)",
+    "Поиск «что вместо skinny jeans сейчас носят»",
+    "Бот: «Какие сумки в тренде? Не хочу старье»",
+    "Отзыв AppStore: «Не понятно, что актуально, всё вперемешку»",
+    "Поиск «тренды верхней одежды» + уход со страницы",
+    "Звонок: «Подскажите, какие пуховики сейчас модные?»",
+    "Коммент TikTok: «Классная куртка, она актуальна?»",
+    "Форма стилиста: «Помогите собрать модный гардероб»",
+    "Корзина: удаление товара после поиска «тренды 2025»"
+  ],
+  "Сложно составить гармоничный образ из вещей": [
+    "Поиск «с чем носить зеленые брюки»",
+    "Тикет: «Подойдет ли эта блузка к юбке арт. 123?»",
+    "Отзыв: «Вещь хорошая, но не знаю, с чем сочетать»",
+    "Чат: «Есть ли готовые луки с этим пиджаком?»",
+    "Просмотр карточки: переход в раздел «С этим носят»",
+    "Возврат: «Не вписалась в гардероб»",
+    "Поиск «капсула на лето с белыми кедами»",
+    "Вопрос стилисту: «Соберите мне полный образ»",
+    "Коммент: «Сложный цвет, ни к чему не подходит»",
+    "Корзина: много вещей, но нет сочетаний"
+  ],
+  "Проблемы с размером и посадкой": [
+    "Возврат: «Большемерит на два размера»",
+    "Отзыв: «Рукава короткие на рост 175»",
+    "Чат: «Какой размер брать на 90-60-90?»",
+    "Поиск «одежда для высоких»",
+    "Тикет: «Таблица размеров не соответствует»",
+    "Возврат: «Узко в плечах, широко в талии»",
+    "Отзыв: «На фото выглядит иначе, чем в жизни»",
+    "Звонок: «Померьте длину стельки 38 размера»",
+    "Комментарий: «Лекала на гномов, где нормальные размеры?»",
+    "Фильтр: выбор размера XXL + 0 результатов"
+  ],
+  "Качество и износостойкость": [
+    "Отзыв: «После первой стирки превратилась в тряпку»",
+    "Возврат: «Торчат нитки, кривые швы»",
+    "Жалоба: «Катышки появились через неделю»",
+    "Чат: «Это натуральная кожа или кожзам?»",
+    "Отзыв с фото: «Дырка по шву при распаковке»",
+    "Тикет: «Линяет и красит другую одежду»",
+    "Вопрос: «Как ухаживать за этой тканью?»",
+    "Отзыв: «Фурнитура дешевая, молния заедает»",
+    "Возврат по браку: «Оторвалась пуговица»",
+    "Негативный отзыв в соцсетях о качестве ткани"
+  ],
+  "Сложности с доставкой и возвратом": [
+    "Тикет: «Где мой заказ? Опаздывает на 3 дня»",
+    "Чат: «Курьер не позвонил заранее»",
+    "Отзыв: «Платный возврат - это грабеж»",
+    "Звонок: «Не могу оформить возврат в приложении»",
+    "Жалоба: «Привезли не тот цвет»",
+    "Вопрос: «Можно ли примерить перед покупкой?»",
+    "Отмена заказа: «Слишком долгая доставка»",
+    "Чат: «Верните деньги, возврат сдан неделю назад»",
+    "Отзыв AppStore: «Приложение виснет при оформлении»",
+    "Поиск «пункты выдачи рядом»"
+  ]
 };
 
-// Problems/Pain Points
-const DESCRIPTIONS = [
-  "Непонятно, какие модели сейчас актуальны",
-  "Сложно составить гармоничный образ из вещей",
-  "Отсутствие готовых капсул, приходится искать по одной",
-  "Ткань быстро скатывается и теряет вид",
-  "Нужного размера нет в наличии более недели",
-  "Слишком сложный и долгий процесс возврата",
-  "Одежда висит мешком и не подчеркивает фигуру",
-  "Рукава изделий систематически коротки",
-  "Пропорции кроя не подходят (узкие бедра, широкая талия)",
-  "В линейке отсутствуют модели на высокий рост",
-  "Оверсайз модели визуально полнят и добавляют вес",
-  "Непрозрачные сроки доставки, риск не успеть",
-  "Цвет в реальности не совпадает с фото",
-  "После стирки вещь села на два размера",
-  "Фурнитура выглядит дешево и быстро ломается"
+const GENERIC_SOURCES = [
+  "Яндекс.Метрика (поиск)",
+  "Техподдержка (Zendesk)",
+  "Онлайн-чат (Jivo)",
+  "Отзывы на сайте",
+  "Маркетплейс (Wildberries)",
+  "Маркетплейс (Ozon)",
+  "CRM (Email)",
+  "Instagram (Direct/Comments)",
+  "Telegram-бот",
+  "App Store Reviews",
+  "Колл-центр",
+  "TikTok Comments"
 ];
 
-const SOURCES = [
-  "Отзывы клиентов",
-  "Пользовательские сессии",
-  "Обращения в поддержку",
-  "Глубинные интервью"
-];
+// Assign source based on signal text content for realism
+const guessSource = (text: string): string => {
+  if (text.includes("Поиск") || text.includes("запрос")) return "Внутренний поиск / Метрика";
+  if (text.includes("Тикет") || text.includes("Возврат")) return "Служба поддержки (Zendesk)";
+  if (text.includes("Чат") || text.includes("Вопрос")) return "Онлайн-чат (Jivo)";
+  if (text.includes("Отзыв")) return "Отзывы о товарах";
+  if (text.includes("Звонок")) return "Колл-центр";
+  if (text.includes("Коммент")) return "Социальные сети";
+  if (text.includes("AppStore")) return "App Store / Google Play";
+  return GENERIC_SOURCES[Math.floor(Math.random() * GENERIC_SOURCES.length)];
+};
 
 // X-AXIS: Jobs (Ordered 0-9)
 export const JOBS_ORDERED = [
@@ -54,16 +128,16 @@ export const JOBS_ORDERED = [
 
 // Z-AXIS: User Segments (Ordered from Active/Young -> Passive/Old)
 export const SEGMENTS_ORDERED = [
-  "Активные школьницы",           // Index 0 (Z: -9)
-  "Студентки ВУЗов",              // Index 1 (Z: -7)
-  "Молодые специалисты",          // Index 2 (Z: -5)
-  "Фрилансеры и цифровые кочевники", // Index 3 (Z: -3)
-  "Молодые мамы",                 // Index 4 (Z: -1)
-  "Офисные менеджеры",            // Index 5 (Z: 1)
-  "Руководители бизнеса",         // Index 6 (Z: 3)
-  "Предприниматели 45+",          // Index 7 (Z: 5)
-  "Активные пенсионеры",          // Index 8 (Z: 7)
-  "Пенсионеры с ограничениями"    // Index 9 (Z: 9)
+  "Активные школьницы",           // Index 0
+  "Студентки ВУЗов",              // Index 1
+  "Молодые специалисты",          // Index 2
+  "Фрилансеры и цифровые кочевники", // Index 3
+  "Молодые мамы",                 // Index 4
+  "Офисные менеджеры",            // Index 5
+  "Руководители бизнеса",         // Index 6
+  "Предприниматели 45+",          // Index 7
+  "Активные пенсионеры",          // Index 8
+  "Пенсионеры с ограничениями"    // Index 9
 ];
 
 // Y-AXIS: Contexts (Ordered by Situation Intensity/Time)
@@ -87,40 +161,10 @@ function generateRandomNormal(mean: number, stdDev: number): number {
   return z * stdDev + mean;
 }
 
-// Map an index (0-9) to a coordinate (-9 to +9) with jitter
 function mapIndexToCoordinate(index: number, jitter: number = 0.8): number {
   const center = -9 + (index * 2);
   return generateRandomNormal(center, jitter);
 }
-
-// Logic for the 5 "Very High" impact items
-const getVeryHighImpact = (): number => {
-  // Set coefficient to 6.5 (with slight variance for visual interest)
-  return 6.5 + Math.random() * 0.5;
-};
-
-// Logic for the rest of the items (Strictly < 2.5)
-const getStandardWeightedImpact = (): number => {
-  const r = Math.random();
-  
-  // High reduced by 3x (from ~10% to ~3.3%)
-  // Score 1.5 to 2.49
-  if (r < 0.033) return 1.5 + Math.random() * 0.99;
-  
-  // Medium (approx 25% kept)
-  // Previous threshold was 0.35 (0.10 + 0.25). New is 0.033 + 0.25 = 0.283
-  // Score 0.8 to 1.49
-  if (r < 0.283) return 0.8 + Math.random() * 0.69;
-  
-  // Low (approx 30% kept)
-  // Previous threshold was 0.65 (0.35 + 0.30). New is 0.283 + 0.30 = 0.583
-  // Score 0.3 to 0.79
-  if (r < 0.583) return 0.3 + Math.random() * 0.49;
-  
-  // Micro (Remaining ~41.7%, was 35%)
-  // Score 0.1 to 0.29
-  return 0.1 + Math.random() * 0.19; 
-};
 
 const getImpactLevel = (score: number): ImpactLevel => {
   if (score >= 2.5) return ImpactLevel.VERY_HIGH;
@@ -130,131 +174,152 @@ const getImpactLevel = (score: number): ImpactLevel => {
   return ImpactLevel.MICRO;
 };
 
-const getWeightedStage = (): JourneyStage => {
-  const r = Math.random();
-  if (r < 0.50) return JourneyStage.PURCHASE;
-  if (r < 0.70) return JourneyStage.RETENTION;
-  
-  const others = Object.values(JourneyStage).filter(
-    s => s !== JourneyStage.PURCHASE && s !== JourneyStage.RETENTION
-  );
-  return others[Math.floor(Math.random() * others.length)];
-};
+// --- HIERARCHICAL GENERATION LOGIC ---
 
-// Clustering Definition
-interface ClusterHotspot {
-  jobIndex: number; // 0-9
-  segIndex: number; // 0-9
-  ctxIndex: number; // 0-9
+interface ProblemCluster {
+  name: string;
+  templates: string[];
+  
+  // Spatial Centers
+  jobIndex: number;
+  segIndex: number;
+  ctxIndex: number;
+  
+  // Business Metrics (Fixed for the cluster)
+  impactScore: number;
+  impactLevel: ImpactLevel;
+  journeyStage: JourneyStage;
+  color: string;
 }
 
 export const generateData = (count: number = 5000): DataPoint[] => {
   const data: DataPoint[] = [];
+  const clusters: ProblemCluster[] = [];
+  const problemNames = Object.keys(PROBLEM_TEMPLATES);
+  const nameToColor: Record<string, string> = {}; // Map to ensure Name -> Color consistency
   
-  // Define Hotspots for Clustering
-  // WE create hotspots specifically biased towards certain dominant segments
-  const hotspots: ClusterHotspot[] = [];
+  // --- STEP 1: GENERATE 40-50 PROBLEM CLUSTERS ---
+  // We need exactly 5 Very High Impact Clusters
+  // ~3.3% High Impact Clusters (approx 1-2 out of 50)
   
-  // Indices for dominant segments: 
-  // 1: Студентки ВУЗов
-  // 3: Фрилансеры
-  // 4: Молодые мамы
-  // 8: Активные пенсионеры
-  const dominantSegments = [1, 3, 4, 8]; 
+  const TOTAL_CLUSTERS = 45;
+  const VERY_HIGH_COUNT = 5;
+  const HIGH_COUNT = 2; // Approx 3-4%
   
-  // Generate 25 hotspots
-  for (let i = 0; i < 25; i++) {
-      // 70% chance for hotspot to be in a dominant segment
-      const useDominant = Math.random() < 0.7;
-      const seg = useDominant 
+  for (let i = 0; i < TOTAL_CLUSTERS; i++) {
+    // 1. Assign Impact
+    let impact: number;
+    if (i < VERY_HIGH_COUNT) {
+      impact = 6.5 + Math.random() * 0.5; // Very High
+    } else if (i < VERY_HIGH_COUNT + HIGH_COUNT) {
+      impact = 1.5 + Math.random() * 0.99; // High
+    } else {
+      // Distribute remaining: Medium, Low, Micro
+      const r = Math.random();
+      if (r < 0.4) impact = 0.8 + Math.random() * 0.69; // Medium
+      else if (r < 0.8) impact = 0.3 + Math.random() * 0.49; // Low
+      else impact = 0.1 + Math.random() * 0.19; // Micro
+    }
+
+    // 2. Assign Stage (Weighted)
+    let stage: JourneyStage;
+    const rStage = Math.random();
+    if (rStage < 0.50) stage = JourneyStage.PURCHASE;
+    else if (rStage < 0.70) stage = JourneyStage.RETENTION;
+    else {
+       const others = Object.values(JourneyStage).filter(s => s !== JourneyStage.PURCHASE && s !== JourneyStage.RETENTION);
+       stage = others[Math.floor(Math.random() * others.length)];
+    }
+
+    // 3. Assign Spatial Position (Bias towards dominant segments)
+    // Dominant: 1, 3, 4, 8
+    const dominantSegments = [1, 3, 4, 8];
+    const useDominant = Math.random() < 0.7;
+    const segIndex = useDominant 
         ? dominantSegments[Math.floor(Math.random() * dominantSegments.length)] 
         : Math.floor(Math.random() * 10);
-
-      hotspots.push({
-          segIndex: seg,
-          jobIndex: Math.floor(Math.random() * 10),
-          ctxIndex: Math.floor(Math.random() * 10)
-      });
+    
+    // 4. Assign Name
+    const name = problemNames[i % problemNames.length];
+    
+    // 5. Assign Color STRICTLY based on Name (ensures all clusters with same name have same color)
+    if (!nameToColor[name]) {
+        const colorIndex = Object.keys(nameToColor).length;
+        nameToColor[name] = CLUSTER_PALETTE[colorIndex % CLUSTER_PALETTE.length];
+    }
+    const color = nameToColor[name];
+    
+    clusters.push({
+      name: name,
+      templates: PROBLEM_TEMPLATES[name],
+      jobIndex: Math.floor(Math.random() * 10),
+      segIndex: segIndex,
+      ctxIndex: Math.floor(Math.random() * 10),
+      impactScore: impact,
+      impactLevel: getImpactLevel(impact),
+      journeyStage: stage,
+      color: color
+    });
   }
 
+  // --- STEP 2: GENERATE SIGNALS ATTACHED TO CLUSTERS ---
+  
   for (let i = 0; i < count; i++) {
-    let segmentIndex: number;
-    let contextIndex: number;
-    let jobIndex: number;
+    // Pick a random cluster
+    const cluster = clusters[Math.floor(Math.random() * clusters.length)];
     
-    // Default spread (used for noise)
-    let gridJitter = 0.8;
-
-    // Clustering Logic: 95% of points belong to a cluster
-    if (Math.random() < 0.95) {
-      const hotspot = hotspots[Math.floor(Math.random() * hotspots.length)];
-      
-      // Start at the hotspot center
-      segmentIndex = hotspot.segIndex;
-      contextIndex = hotspot.ctxIndex;
-      jobIndex = hotspot.jobIndex;
-      
-      // Very tight spread for "dense" look (0.22 down from 0.4)
-      gridJitter = 0.22; 
-      
-      // Organic Drift: Points shouldn't be perfectly spherical.
-      // Randomly drift along ONE axis to create "stretched" clusters
-      if (Math.random() > 0.7) {
-          const axis = Math.random();
-          const drift = (Math.random() - 0.5) * 1.2; // +/- 0.6 unit drift
-          
-          if (axis < 0.33) segmentIndex += drift;
-          else if (axis < 0.66) contextIndex += drift;
-          else jobIndex += drift;
-      }
-      
-    } else {
-      // Random Noise (5%)
-      segmentIndex = Math.random() * 10; 
-      contextIndex = Math.random() * 10;
-      jobIndex = Math.random() * 10;
-    }
+    // 1. Spatial Position (Cluster Center + Jitter)
+    // Tight jitter for valid clusters
+    const gridJitter = 0.25; 
     
-    // Clamp indices to grid bounds (0.0 to 9.9)
-    segmentIndex = Math.max(0, Math.min(9.9, segmentIndex));
-    contextIndex = Math.max(0, Math.min(9.9, contextIndex));
-    jobIndex = Math.max(0, Math.min(9.9, jobIndex));
-
-    // Generate 3D Coordinates
-    // mapIndexToCoordinate can handle float inputs, calculating correct center
-    const z = mapIndexToCoordinate(segmentIndex, gridJitter);
-    const y = mapIndexToCoordinate(contextIndex, gridJitter);
-    const x = mapIndexToCoordinate(jobIndex, gridJitter);
-
-    // Determine categorical values based on nearest integer index
-    const finalJobIndex = Math.round(jobIndex);
-    const finalSegIndex = Math.round(segmentIndex);
-    const finalCtxIndex = Math.round(contextIndex);
-
-    const category = JOBS_ORDERED[finalJobIndex];
-    
-    // Exact number logic: First 5 items are "Very High", rest are standard.
-    let impact: number;
-    if (i < 5) {
-      impact = getVeryHighImpact();
-    } else {
-      impact = getStandardWeightedImpact();
+    // Apply organic drift
+    let driftSeg = 0, driftCtx = 0, driftJob = 0;
+    if (Math.random() > 0.7) {
+       const axis = Math.random();
+       const amount = (Math.random() - 0.5) * 1.5;
+       if (axis < 0.33) driftSeg = amount;
+       else if (axis < 0.66) driftCtx = amount;
+       else driftJob = amount;
     }
 
-    const impactLevel = getImpactLevel(impact);
-    const stage = getWeightedStage();
+    // Clamp indices
+    const rawSeg = Math.max(0, Math.min(9.9, cluster.segIndex + (Math.random() - 0.5) + driftSeg));
+    const rawCtx = Math.max(0, Math.min(9.9, cluster.ctxIndex + (Math.random() - 0.5) + driftCtx));
+    const rawJob = Math.max(0, Math.min(9.9, cluster.jobIndex + (Math.random() - 0.5) + driftJob));
 
+    const z = mapIndexToCoordinate(rawSeg, gridJitter);
+    const y = mapIndexToCoordinate(rawCtx, gridJitter);
+    const x = mapIndexToCoordinate(rawJob, gridJitter);
+
+    const finalJobIndex = Math.round(rawJob);
+    const finalSegIndex = Math.round(rawSeg);
+    const finalCtxIndex = Math.round(rawCtx);
+
+    // 2. Specific Signal Content
+    const template = cluster.templates[Math.floor(Math.random() * cluster.templates.length)];
+    
     data.push({
       id: `sig-${10000 + i}`,
       position: [x, y, z],
-      jobCategory: category,
+      
+      // Parent Info
+      clusterName: cluster.name,
+      
+      // Signal Info
+      description: template,
+      source: guessSource(template),
+      
+      // Categories
+      jobCategory: JOBS_ORDERED[finalJobIndex],
       jobIndex: finalJobIndex,
-      journeyStage: stage,
-      impactScore: impact,
-      impactLevel: impactLevel,
-      description: DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)],
-      color: STAGE_COLORS[stage],
-      source: SOURCES[Math.floor(Math.random() * SOURCES.length)],
+      journeyStage: cluster.journeyStage,
+      
+      // Metrics (Inherited)
+      impactScore: cluster.impactScore,
+      impactLevel: cluster.impactLevel,
+      color: cluster.color, // Explicitly set from CLUSTER, overriding any stage logic
+      
+      // Grid Text
       segment: SEGMENTS_ORDERED[finalSegIndex],
       segmentIndex: finalSegIndex,
       context: CONTEXTS_ORDERED[finalCtxIndex],

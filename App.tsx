@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null); // Z
   const [activeContextIndex, setActiveContextIndex] = useState<number | null>(null); // Y
   const [activeJobCategory, setActiveJobCategory] = useState<JobCategory | null>(null); // X
+  const [activeClusterName, setActiveClusterName] = useState<string | null>(null); // Cluster Filter
   
   // Stage Filter State (Multi-select)
   const [selectedStages, setSelectedStages] = useState<JourneyStage[]>([]);
@@ -39,6 +40,7 @@ const App: React.FC = () => {
     setActiveSegmentIndex(null);
     setActiveContextIndex(null);
     setActiveJobCategory(null);
+    setActiveClusterName(null);
     setSelectedStages([]);
     setSelectedImpactLevels([]);
   }
@@ -63,24 +65,13 @@ const App: React.FC = () => {
     });
   };
 
-  const hasActiveFilters = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
+  const hasActiveFilters = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
 
   // Helper for job filter styling
   const getJobButtonStyle = (cat: JobCategory, isActive: boolean) => {
     return isActive 
       ? `bg-slate-600 text-white shadow-lg` 
       : 'text-slate-400 hover:bg-white/5 hover:text-slate-200';
-  };
-
-  // Color Map for Legend
-  const STAGE_COLORS: Record<JourneyStage, string> = {
-    [JourneyStage.AWARENESS]: '#a855f7',
-    [JourneyStage.CONSIDERATION]: '#3b82f6',
-    [JourneyStage.PURCHASE]: '#22c55e',
-    [JourneyStage.ONBOARDING]: '#facc15',
-    [JourneyStage.ACTIVE_USE]: '#ef4444',
-    [JourneyStage.RETENTION]: '#ec4899',
-    [JourneyStage.ADVOCACY]: '#22d3ee',
   };
 
   const IMPACT_COLORS: Record<ImpactLevel, string> = {
@@ -102,6 +93,7 @@ const App: React.FC = () => {
           activeSegmentIndex={activeSegmentIndex}
           activeContextIndex={activeContextIndex}
           activeJobCategory={activeJobCategory}
+          activeClusterName={activeClusterName}
           selectedStages={selectedStages}
           selectedImpactLevels={selectedImpactLevels}
           onNodeSelect={handleNodeSelect} 
@@ -114,14 +106,12 @@ const App: React.FC = () => {
           Пространство Ценности
         </h1>
         <p className="text-slate-400 text-xs max-w-xs mt-1 drop-shadow-md">
-          Интерактивная карта проблем (Jobs/Context/Segment).
-          <br />
-          <span className="opacity-70">Цвет сигнала = Стадия пользователя.</span>
+          <span className="opacity-70">Цвет сигнала = Кластер проблем.</span>
         </p>
       </div>
 
       {/* Combined Filter Sidebar */}
-      <div className="absolute top-24 left-4 z-10 w-64 flex flex-col gap-3 max-h-[80vh]">
+      <div className="absolute top-24 left-4 z-10 w-64 flex flex-col gap-3 max-h-[80vh] mt-4">
         
         {/* SCROLLABLE CONTAINER FOR ALL LISTS */}
         <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1 pb-2">
@@ -247,7 +237,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Stage Filter */}
+        {/* Stage Filter (Color cues removed) */}
         <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl max-w-[200px]">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
@@ -271,10 +261,7 @@ const App: React.FC = () => {
                   onClick={() => toggleStage(stage)}
                   className={`flex items-center gap-2 w-full text-left p-1 rounded hover:bg-white/5 transition-all ${opacity} ${isSelected ? 'bg-white/5 ring-1 ring-white/10' : ''}`}
                 >
-                  <span 
-                    className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px] flex-shrink-0"
-                    style={{ backgroundColor: STAGE_COLORS[stage], boxShadow: `0 0 5px ${STAGE_COLORS[stage]}` }}
-                  />
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-white' : 'bg-slate-600'}`} />
                   <span className={`text-[10px] transition-colors ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>
                     {stage}
                   </span>
@@ -297,11 +284,13 @@ const App: React.FC = () => {
         activeSegmentIndex={activeSegmentIndex}
         activeContextIndex={activeContextIndex}
         activeJobCategory={activeJobCategory}
+        activeClusterName={activeClusterName}
         
         // Pass setters
         onSetSegmentFilter={setActiveSegmentIndex}
         onSetContextFilter={setActiveContextIndex}
         onSetJobFilter={setActiveJobCategory}
+        onSetClusterFilter={setActiveClusterName}
       />
     </div>
   );

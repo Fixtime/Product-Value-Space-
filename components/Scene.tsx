@@ -13,6 +13,7 @@ interface SceneProps {
   activeSegmentIndex: number | null; // Z Axis
   activeContextIndex: number | null; // Y Axis
   activeJobCategory: JobCategory | null; // X Axis
+  activeClusterName: string | null; // Cluster Filter
   selectedStages: JourneyStage[]; // Color/Stage Filter (Multi-select)
   selectedImpactLevels: ImpactLevel[]; // Impact Filter (Multi-select)
   onNodeSelect: (data: DataPoint) => void;
@@ -165,9 +166,10 @@ const Connections: React.FC<{
   activeSegmentIndex: number | null,
   activeContextIndex: number | null,
   activeJobCategory: JobCategory | null,
+  activeClusterName: string | null,
   selectedStages: JourneyStage[],
   selectedImpactLevels: ImpactLevel[]
-}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels }) => {
+}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels }) => {
   
   const geometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
@@ -178,6 +180,7 @@ const Connections: React.FC<{
       if (activeSegmentIndex !== null && p.segmentIndex !== activeSegmentIndex) return false;
       if (activeContextIndex !== null && p.contextIndex !== activeContextIndex) return false;
       if (activeJobCategory !== null && p.jobCategory !== activeJobCategory) return false;
+      if (activeClusterName !== null && p.clusterName !== activeClusterName) return false;
       if (selectedStages.length > 0 && !selectedStages.includes(p.journeyStage)) return false;
       if (selectedImpactLevels.length > 0 && !selectedImpactLevels.includes(p.impactLevel)) return false;
       return true;
@@ -204,7 +207,7 @@ const Connections: React.FC<{
       }
     }
     return new THREE.BufferGeometry().setFromPoints(points);
-  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels]);
+  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels]);
 
   if (geometry.attributes.position.count === 0) return null;
 
@@ -234,10 +237,10 @@ const FullCage: React.FC<{ isFiltered: boolean }> = ({ isFiltered }) => {
 }
 
 const SceneContent: React.FC<SceneProps> = ({ 
-  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, selectedStages, selectedImpactLevels, onNodeSelect 
+  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels, onNodeSelect 
 }) => {
   const orbitRef = useRef<any>(null);
-  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
+  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
 
   return (
     <>
@@ -282,12 +285,19 @@ const SceneContent: React.FC<SceneProps> = ({
         activeSegmentIndex={activeSegmentIndex} 
         activeContextIndex={activeContextIndex}
         activeJobCategory={activeJobCategory}
+        activeClusterName={activeClusterName}
         selectedStages={selectedStages}
         selectedImpactLevels={selectedImpactLevels}
       />
 
       {data.map((point) => {
-        // Visibility Logic
+        // Cluster Filter - STRICT HIDING
+        // If a Cluster Filter is active, strictly hide anything that doesn't match.
+        if (activeClusterName !== null && point.clusterName !== activeClusterName) {
+            return null;
+        }
+
+        // Visibility Logic for other filters (Dimming)
         let isDimmed = false;
         
         // Axis Filters

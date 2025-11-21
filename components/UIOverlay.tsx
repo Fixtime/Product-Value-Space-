@@ -1,54 +1,54 @@
 
 import React, { useMemo } from 'react';
 import { DataPoint, JobCategory } from '../types';
-import { X, Activity, User, Smartphone, ArrowRight, Link, MessageSquare, Briefcase, Route } from 'lucide-react';
+import { X, Activity, User, Smartphone, ArrowRight, MessageSquare, Briefcase, Route, Box, GitMerge } from 'lucide-react';
 
 interface UIOverlayProps {
   selectedData: DataPoint | null;
-  allData: DataPoint[]; // We need full data to find related signals
-  
-  // Filter States to show active status
+  allData: DataPoint[]; 
   activeSegmentIndex: number | null;
   activeContextIndex: number | null;
   activeJobCategory: JobCategory | null;
-
-  // Actions
+  activeClusterName: string | null;
   onClose: () => void;
   onSelect: (data: DataPoint) => void;
   onSetSegmentFilter: (index: number | null) => void;
   onSetContextFilter: (index: number | null) => void;
   onSetJobFilter: (category: JobCategory | null) => void;
+  onSetClusterFilter: (name: string | null) => void;
 }
 
 export const UIOverlay: React.FC<UIOverlayProps> = ({ 
   selectedData, 
   allData, 
-  activeSegmentIndex,
-  activeContextIndex,
-  activeJobCategory,
+  activeSegmentIndex, 
+  activeContextIndex, 
+  activeJobCategory, 
+  activeClusterName,
   onClose, 
   onSelect,
   onSetSegmentFilter,
   onSetContextFilter,
-  onSetJobFilter
+  onSetJobFilter,
+  onSetClusterFilter
 }) => {
   
-  // Calculate related signals (nearest neighbors in the same category)
-  const relatedSignals = useMemo(() => {
+  // Calculate "Causal" signals (Causes/Precursors)
+  // Logic: 
+  // 1. Must be in the same Problem Cluster (same root issue).
+  // 2. Sort by Impact Score Ascending. 
+  //    Assumption: Low impact signals (faint traces, early queries) are the "causes" 
+  //    that aggregate into the currently selected (likely higher impact) signal.
+  const causalSignals = useMemo(() => {
     if (!selectedData || !allData) return [];
     
     return allData
-      .filter(d => d.id !== selectedData.id && d.jobCategory === selectedData.jobCategory)
-      .map(d => {
-        // Euclidean distance
-        const dx = d.position[0] - selectedData.position[0];
-        const dy = d.position[1] - selectedData.position[1];
-        const dz = d.position[2] - selectedData.position[2];
-        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-        return { ...d, distance: dist };
-      })
-      .sort((a, b) => a.distance - b.distance) // Sort by closest distance
-      .slice(0, 5); // Take top 5
+      .filter(d => 
+        d.clusterName === selectedData.clusterName && // Same semantic problem
+        d.id !== selectedData.id // Not self
+      )
+      .sort((a, b) => a.impactScore - b.impactScore) // Smallest first (Precursors)
+      .slice(0, 5);
   }, [selectedData, allData]);
 
   if (!selectedData) return null;
@@ -56,6 +56,7 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
   const isSegmentActive = activeSegmentIndex === selectedData.segmentIndex;
   const isContextActive = activeContextIndex === selectedData.contextIndex;
   const isJobActive = activeJobCategory === selectedData.jobCategory;
+  const isClusterActive = activeClusterName === selectedData.clusterName;
 
   return (
     <div className="absolute top-4 right-4 w-96 animate-fade-in z-20 max-h-[95vh] overflow-y-auto custom-scrollbar">
@@ -86,12 +87,31 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
           </button>
         </div>
 
-        {/* Main Description (Problem Name) */}
-        <div className="mb-6 relative z-10">
+        {/* Main Description (Low Level Signal) */}
+        <div className="mb-4 relative z-10">
           <h3 className="text-lg font-semibold text-white leading-snug">
             "{selectedData.description}"
           </h3>
         </div>
+
+        {/* Problem Cluster (Parent) - Interactive Filter */}
+        <button 
+          onClick={() => onSetClusterFilter(isClusterActive ? null : selectedData.clusterName)}
+          className={`w-full text-left mb-6 rounded-lg p-3 border transition-all group relative z-10 ${
+            isClusterActive 
+              ? 'bg-yellow-500/20 border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]' 
+              : 'bg-white/10 border-white/10 hover:bg-white/20'
+          }`}
+        >
+             <div className={`flex items-center gap-2 mb-1 text-xs font-bold uppercase ${isClusterActive ? 'text-yellow-200' : 'text-yellow-400'}`}>
+              <Box size={12} />
+              <span>Кластер проблем</span>
+              {isClusterActive && <span className="ml-auto text-[9px] bg-yellow-500 text-black px-1 rounded">Активен</span>}
+            </div>
+             <div className="text-sm font-medium text-white leading-tight mt-1">
+               {selectedData.clusterName}
+            </div>
+        </button>
 
         {/* Stage & Impact Grid */}
         <div className="grid grid-cols-2 gap-3 mb-4 relative z-10">
@@ -114,7 +134,7 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
           <div className="rounded-lg bg-white/5 p-3 border border-white/5">
             <div className="flex items-center gap-2 mb-1 text-xs text-slate-400">
               <Activity size={12} />
-              <span>Влияние</span>
+              <span>Влияние кластера на бизнес</span>
             </div>
             <div className="text-xl font-mono text-white font-bold">
               {selectedData.impactScore.toFixed(2)}
@@ -126,7 +146,7 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
         <div className="mb-4 rounded-lg bg-white/5 p-3 border border-white/5 relative z-10">
              <div className="flex items-center gap-2 mb-1 text-xs text-slate-400">
               <MessageSquare size={12} />
-              <span>Источник</span>
+              <span>Источник сигнала</span>
             </div>
              <div className="text-xs font-medium text-white leading-tight mt-1">
                {selectedData.source}
@@ -201,15 +221,15 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
 
         </div>
 
-        {/* Related Signals */}
+        {/* Causal Signals (Formerly Related) */}
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase text-slate-500 tracking-wider">
-            <Link size={12} />
-            <span>Связанные сигналы (Топ-5)</span>
+            <GitMerge size={12} />
+            <span>Причины возникновения</span>
           </div>
           
           <div className="space-y-2">
-            {relatedSignals.map((signal) => (
+            {causalSignals.map((signal) => (
               <button
                 key={signal.id}
                 onClick={() => onSelect(signal)}
@@ -217,17 +237,20 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
               >
                 <div className="flex items-center gap-3 overflow-hidden">
                   <span 
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 opacity-75" 
                     style={{ backgroundColor: signal.color }}
                   />
                   <div className="truncate">
                     <div className="text-xs text-slate-300 truncate group-hover:text-white transition-colors">
                       {signal.description}
                     </div>
+                    <div className="text-[9px] text-slate-600 truncate">
+                        {signal.source}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-slate-500 group-hover:text-slate-300 pl-2">
-                  <span className="text-[10px] font-mono">{signal.impactScore.toFixed(1)}</span>
+                  <span className="text-[10px] font-mono opacity-50">{signal.impactScore.toFixed(1)}</span>
                   <ArrowRight size={10} />
                 </div>
               </button>
@@ -238,4 +261,4 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
       </div>
     </div>
   );
-};
+}
