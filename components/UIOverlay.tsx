@@ -36,19 +36,35 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
   // Calculate "Causal" signals (Causes/Precursors)
   // Logic: 
   // 1. Must be in the same Problem Cluster (same root issue).
-  // 2. Sort by Impact Score Ascending. 
-  //    Assumption: Low impact signals (faint traces, early queries) are the "causes" 
-  //    that aggregate into the currently selected (likely higher impact) signal.
+  // 2. PRIORITY: The Root Cause (Pulsar) MUST be first.
+  // 3. Then sort others by Impact Score Ascending (precursors).
   const causalSignals = useMemo(() => {
     if (!selectedData || !allData) return [];
     
-    return allData
-      .filter(d => 
-        d.clusterName === selectedData.clusterName && // Same semantic problem
-        d.id !== selectedData.id // Not self
-      )
-      .sort((a, b) => a.impactScore - b.impactScore) // Smallest first (Precursors)
-      .slice(0, 5);
+    const clusterSignals = allData.filter(d => 
+      d.clusterName === selectedData.clusterName && // Same semantic problem
+      d.id !== selectedData.id // Not self
+    );
+
+    const rootCause = clusterSignals.find(d => d.isRootCause);
+    
+    const others = clusterSignals
+      .filter(d => !d.isRootCause)
+      .sort((a, b) => a.impactScore - b.impactScore)
+      .slice(0, 4); // Take fewer to make room for root cause
+
+    // Construct final list: Root Cause (if exists) -> Others
+    // Note: If selectedData IS the root cause, 'rootCause' will be undefined here (filtered out by id check)
+    const list = rootCause ? [rootCause, ...others] : others;
+    
+    // If the selected node IS the root cause, show the top precursors
+    if (selectedData.isRootCause) {
+        return clusterSignals
+            .sort((a, b) => a.impactScore - b.impactScore)
+            .slice(0, 5);
+    }
+
+    return list;
   }, [selectedData, allData]);
 
   if (!selectedData) return null;
@@ -115,7 +131,6 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
               {isClusterActive && <span className="ml-auto text-[9px] bg-yellow-500 text-black px-1 rounded">Активен</span>}
             </div>
              <div className="text-sm font-medium text-white leading-tight mt-1 flex items-center gap-2">
-               {/* Visual cue that cluster has a specific color */}
                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: selectedData.color }}></span>
                {selectedData.clusterName}
             </div>
@@ -241,15 +256,22 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
               <button
                 key={signal.id}
                 onClick={() => onSelect(signal)}
-                className="w-full text-left group p-2 rounded hover:bg-white/10 border border-transparent hover:border-white/5 transition-all flex items-center justify-between"
+                className={`w-full text-left group p-2 rounded hover:bg-white/10 border border-transparent hover:border-white/5 transition-all flex items-center justify-between ${signal.isRootCause ? 'bg-yellow-500/10 border-yellow-500/20' : ''}`}
               >
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <span 
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 opacity-75" 
-                    style={{ backgroundColor: signal.color }}
-                  />
+                  <div className="relative flex-shrink-0">
+                      <span 
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0 opacity-75 block" 
+                        style={{ backgroundColor: signal.color }}
+                      />
+                      {signal.isRootCause && (
+                          <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border border-yellow-500/50 rounded-full animate-pulse"></div>
+                      )}
+                  </div>
+                  
                   <div className="truncate">
-                    <div className="text-xs text-slate-300 truncate group-hover:text-white transition-colors">
+                    <div className={`text-xs truncate group-hover:text-white transition-colors ${signal.isRootCause ? 'text-yellow-200 font-bold' : 'text-slate-300'}`}>
+                      {signal.isRootCause && <span className="text-[9px] mr-1 text-yellow-500">⚠ ПУЛЬСАР: </span>}
                       {signal.description}
                     </div>
                     <div className="text-[9px] text-slate-600 truncate">
