@@ -12,7 +12,7 @@ interface SceneProps {
   selectedId: string | null;
   activeSegmentIndex: number | null; // Z Axis
   activeContextIndex: number | null; // Y Axis
-  activeJobCategory: JobCategory | null; // X Axis
+  activeJobCategory: string | null; // X Axis
   activeClusterName: string | null; // Cluster Filter
   selectedStages: JourneyStage[]; // Color/Stage Filter (Multi-select)
   selectedImpactLevels: ImpactLevel[]; // Impact Filter (Multi-select)
@@ -68,7 +68,7 @@ const ContextSlice: React.FC<{ index: number }> = ({ index }) => {
 
 // --- X-AXIS SLICE (Jobs) ---
 // Updated to support standard 10-slot grid
-const JobSlice: React.FC<{ category: JobCategory }> = ({ category }) => {
+const JobSlice: React.FC<{ category: string }> = ({ category }) => {
   const index = JOBS_ORDERED.indexOf(category);
   // Map index 0-9 to coordinate -9 to +9
   const xPos = index !== -1 ? -9 + (index * 2) : 0;
@@ -96,7 +96,7 @@ const JobSlice: React.FC<{ category: JobCategory }> = ({ category }) => {
 const IntersectionHighlight: React.FC<{
   activeSegmentIndex: number | null;
   activeContextIndex: number | null;
-  activeJobCategory: JobCategory | null;
+  activeJobCategory: string | null;
 }> = ({ activeSegmentIndex, activeContextIndex, activeJobCategory }) => {
   
   const filters = [activeSegmentIndex !== null, activeContextIndex !== null, activeJobCategory !== null];
@@ -166,7 +166,7 @@ const Connections: React.FC<{
   data: DataPoint[], 
   activeSegmentIndex: number | null,
   activeContextIndex: number | null,
-  activeJobCategory: JobCategory | null,
+  activeJobCategory: string | null,
   activeClusterName: string | null,
   selectedStages: JourneyStage[],
   selectedImpactLevels: ImpactLevel[],

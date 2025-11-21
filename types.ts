@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export enum JobCategory {
@@ -38,14 +37,14 @@ export interface DataPoint {
   
   // Cluster/Parent Info
   clusterName: string; // The High-Level Problem Name
-  isRootCause: boolean; // Indicates if this signal is the root cause for the cluster
-
+  isRootCause: boolean; // Flag for the primary/root cause signal in the cluster
+  
   // Signal Info
   description: string; // The Low-Level Specific Signal Text
   source: string; // Source of the signal (Logs, CRM, etc)
   
   // Dimensions
-  jobCategory: JobCategory;
+  jobCategory: string; // Changed from Enum to string to support dynamic values
   jobIndex: number; // 0-9 position on X axis
   journeyStage: JourneyStage; 
   
@@ -63,6 +62,23 @@ export interface DataPoint {
 
 export interface AppState {
   selectedPoint: DataPoint | null;
+}
+
+// --- Dynamic Generation Types ---
+
+export interface GeneratedCluster {
+  name: string;
+  templates: string[];
+  journeyStage: JourneyStage;
+  impactWeight: number; // 1-10 scale
+}
+
+export interface ProductConfig {
+  productName: string;
+  jobs: string[]; // 10 items
+  segments: string[]; // 10 items
+  contexts: string[]; // 10 items
+  clusters: GeneratedCluster[]; // ~40-50 items
 }
 
 // Augment the global JSX.IntrinsicElements (for older React types / global JSX)

@@ -1,20 +1,24 @@
 
 import React, { useState, useMemo } from 'react';
 import { generateData, SEGMENTS_ORDERED, CONTEXTS_ORDERED } from './utils/dataGenerator';
+import { generateProductData } from './utils/gemini';
 import { Scene } from './components/Scene';
 import { UIOverlay } from './components/UIOverlay';
+import { ProductInput } from './components/ProductInput';
 import { DataPoint, JobCategory, JourneyStage, ImpactLevel } from './types';
 import { Layers, Smartphone, Briefcase, Filter, Route, TrendingUp, Activity, Zap } from 'lucide-react';
 
 const App: React.FC = () => {
-  const data = useMemo(() => generateData(5000), []);
+  const [data, setData] = useState<DataPoint[]>(() => generateData(5000));
+  const [productName, setProductName] = useState<string>("Product Value Space");
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   
   // Axis Filter States
   const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null); // Z
   const [activeContextIndex, setActiveContextIndex] = useState<number | null>(null); // Y
-  const [activeJobCategory, setActiveJobCategory] = useState<JobCategory | null>(null); // X
+  const [activeJobCategory, setActiveJobCategory] = useState<string | null>(null); // X (String now)
   const [activeClusterName, setActiveClusterName] = useState<string | null>(null); // Cluster Filter
   
   // Stage Filter State (Multi-select)
@@ -25,6 +29,25 @@ const App: React.FC = () => {
 
   // Pulsar Filter State
   const [showPulsars, setShowPulsars] = useState<boolean>(false);
+
+  // Handler for Gemini Generation
+  const handleGenerate = async (description: string) => {
+    setIsGenerating(true);
+    try {
+      const config = await generateProductData(description);
+      const newData = generateData(5000, config);
+      setData(newData);
+      setProductName(config.productName);
+      
+      // Reset all filters
+      resetFilters();
+    } catch (error) {
+      console.error("Generation failed:", error);
+      alert("Ошибка генерации данных. Попробуйте еще раз.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // --- AGGREGATION & SORTING LOGIC ---
   const { sortedJobs, sortedSegments, sortedContexts } = useMemo(() => {
@@ -40,7 +63,6 @@ const App: React.FC = () => {
     });
 
     // Helper to process list
-    // Returns sorted items with score and original index
     const processList = <T,>(items: T[], impactMap: Record<string, number>, getValue: (i: T) => string) => {
       const maxVal = Math.max(...Object.values(impactMap));
       
@@ -57,8 +79,10 @@ const App: React.FC = () => {
       }).sort((a, b) => b.score - a.score); // Descending Sort (Highest Impact First)
     };
 
+    // Get current ordered lists from generator exports or derive from data to be safe
+    // We import the GLOBAL mutable lists from generator which might have changed
     return {
-      sortedJobs: processList(Object.values(JobCategory), jobImpact, (c) => c),
+      sortedJobs: processList(Array.from(new Set(data.map(d => d.jobCategory))), jobImpact, (c) => c),
       sortedSegments: processList(SEGMENTS_ORDERED, segImpact, (s) => s),
       sortedContexts: processList(CONTEXTS_ORDERED, ctxImpact, (c) => c),
     };
@@ -159,6 +183,8 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full h-screen bg-slate-950 overflow-hidden font-sans">
       
+      <ProductInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+
       {/* 3D Canvas */}
       <div className="absolute inset-0 z-0">
         <Scene 
@@ -166,6 +192,7 @@ const App: React.FC = () => {
           selectedId={selectedId} 
           activeSegmentIndex={activeSegmentIndex}
           activeContextIndex={activeContextIndex}
+          // Cast to JobCategory removed as Scene now accepts string
           activeJobCategory={activeJobCategory}
           activeClusterName={activeClusterName}
           selectedStages={selectedStages}
@@ -178,7 +205,7 @@ const App: React.FC = () => {
       {/* Header */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow-md">
-          Product Value Space
+          {productName}
         </h1>
       </div>
 
@@ -198,7 +225,7 @@ const App: React.FC = () => {
                 {sortedJobs.map((item, index) => (
                   <button
                     key={item.value}
-                    onClick={() => setActiveJobCategory(activeJobCategory === item.value ? null : item.value as JobCategory)}
+                    onClick={() => setActiveJobCategory(activeJobCategory === item.value ? null : item.value)}
                     className={`w-full text-left px-2 py-2 rounded border transition-all ${getFilterButtonStyle(activeJobCategory === item.value)}`}
                   >
                     <FilterItemRow 
@@ -380,6 +407,7 @@ const App: React.FC = () => {
         // Pass active states
         activeSegmentIndex={activeSegmentIndex}
         activeContextIndex={activeContextIndex}
+        // Cast to JobCategory removed as UIOverlay now accepts string
         activeJobCategory={activeJobCategory}
         activeClusterName={activeClusterName}
         

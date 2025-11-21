@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { DataPoint, JobCategory } from '../types';
+import { DataPoint } from '../types';
 import { X, Activity, User, Smartphone, ArrowRight, MessageSquare, Briefcase, Route, Box, GitMerge, Zap } from 'lucide-react';
 
 interface UIOverlayProps {
@@ -8,13 +8,13 @@ interface UIOverlayProps {
   allData: DataPoint[]; 
   activeSegmentIndex: number | null;
   activeContextIndex: number | null;
-  activeJobCategory: JobCategory | null;
+  activeJobCategory: string | null;
   activeClusterName: string | null;
   onClose: () => void;
   onSelect: (data: DataPoint) => void;
   onSetSegmentFilter: (index: number | null) => void;
   onSetContextFilter: (index: number | null) => void;
-  onSetJobFilter: (category: JobCategory | null) => void;
+  onSetJobFilter: (category: string | null) => void;
   onSetClusterFilter: (name: string | null) => void;
 }
 
