@@ -16,6 +16,7 @@ interface SceneProps {
   activeClusterName: string | null; // Cluster Filter
   selectedStages: JourneyStage[]; // Color/Stage Filter (Multi-select)
   selectedImpactLevels: ImpactLevel[]; // Impact Filter (Multi-select)
+  showPulsars: boolean; // Pulsar Filter
   onNodeSelect: (data: DataPoint) => void;
 }
 
@@ -168,8 +169,9 @@ const Connections: React.FC<{
   activeJobCategory: JobCategory | null,
   activeClusterName: string | null,
   selectedStages: JourneyStage[],
-  selectedImpactLevels: ImpactLevel[]
-}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels }) => {
+  selectedImpactLevels: ImpactLevel[],
+  showPulsars: boolean
+}> = ({ data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels, showPulsars }) => {
   
   const geometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
@@ -177,6 +179,7 @@ const Connections: React.FC<{
 
     // Helper to check if a point matches all active filters
     const isVisible = (p: DataPoint) => {
+      if (showPulsars && !p.isRootCause) return false; // STRICTLY HIDE non-pulsars if mode is active
       if (activeSegmentIndex !== null && p.segmentIndex !== activeSegmentIndex) return false;
       if (activeContextIndex !== null && p.contextIndex !== activeContextIndex) return false;
       if (activeJobCategory !== null && p.jobCategory !== activeJobCategory) return false;
@@ -207,7 +210,7 @@ const Connections: React.FC<{
       }
     }
     return new THREE.BufferGeometry().setFromPoints(points);
-  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels]);
+  }, [data, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels, showPulsars]);
 
   if (geometry.attributes.position.count === 0) return null;
 
@@ -237,10 +240,10 @@ const FullCage: React.FC<{ isFiltered: boolean }> = ({ isFiltered }) => {
 }
 
 const SceneContent: React.FC<SceneProps> = ({ 
-  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels, onNodeSelect 
+  data, selectedId, activeSegmentIndex, activeContextIndex, activeJobCategory, activeClusterName, selectedStages, selectedImpactLevels, showPulsars, onNodeSelect 
 }) => {
   const orbitRef = useRef<any>(null);
-  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
+  const isFiltered = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0 || showPulsars;
 
   return (
     <>
@@ -288,11 +291,17 @@ const SceneContent: React.FC<SceneProps> = ({
         activeClusterName={activeClusterName}
         selectedStages={selectedStages}
         selectedImpactLevels={selectedImpactLevels}
+        showPulsars={showPulsars}
       />
 
       {data.map((point) => {
-        // Cluster Filter - STRICT HIDING
-        // If a Cluster Filter is active, strictly hide anything that doesn't match.
+        // --- PULSAR FILTER: STRICT HIDING ---
+        // If "Show Pulsars" is active, we strictly hide anything that is NOT a root cause.
+        if (showPulsars && !point.isRootCause) {
+            return null;
+        }
+
+        // --- CLUSTER FILTER: STRICT HIDING ---
         if (activeClusterName !== null && point.clusterName !== activeClusterName) {
             return null;
         }

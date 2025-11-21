@@ -38,7 +38,8 @@ export interface DataPoint {
   
   // Cluster/Parent Info
   clusterName: string; // The High-Level Problem Name
-  
+  isRootCause: boolean; // Indicates if this signal is the root cause for the cluster
+
   // Signal Info
   description: string; // The Low-Level Specific Signal Text
   source: string; // Source of the signal (Logs, CRM, etc)
@@ -64,31 +65,54 @@ export interface AppState {
   selectedPoint: DataPoint | null;
 }
 
-// Define the elements to add
-interface CustomThreeElements {
-  ambientLight: any;
-  pointLight: any;
-  mesh: any;
-  sphereGeometry: any;
-  meshStandardMaterial: any;
-  meshPhysicalMaterial: any; // Added for volumetric look
-  ringGeometry: any;
-  meshBasicMaterial: any;
-  group: any;
-  boxGeometry: any;
-  gridHelper: any;
-  primitive: any;
-  lineSegments: any;
-  bufferGeometry: any;
-  bufferAttribute: any;
-  lineBasicMaterial: any;
-  edgesGeometry: any; 
-  [elemName: string]: any;
-}
-
 // Augment the global JSX.IntrinsicElements (for older React types / global JSX)
 declare global {
   namespace JSX {
-    interface IntrinsicElements extends CustomThreeElements {}
+    interface IntrinsicElements {
+      ambientLight: any;
+      pointLight: any;
+      mesh: any;
+      sphereGeometry: any;
+      meshStandardMaterial: any;
+      meshPhysicalMaterial: any; // Added for volumetric look
+      ringGeometry: any;
+      meshBasicMaterial: any;
+      group: any;
+      boxGeometry: any;
+      gridHelper: any;
+      primitive: any;
+      lineSegments: any;
+      bufferGeometry: any;
+      bufferAttribute: any;
+      lineBasicMaterial: any;
+      edgesGeometry: any; 
+      [elemName: string]: any;
+    }
+  }
+  
+  // Augment React.JSX namespace for newer React types
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        ambientLight: any;
+        pointLight: any;
+        mesh: any;
+        sphereGeometry: any;
+        meshStandardMaterial: any;
+        meshPhysicalMaterial: any;
+        ringGeometry: any;
+        meshBasicMaterial: any;
+        group: any;
+        boxGeometry: any;
+        gridHelper: any;
+        primitive: any;
+        lineSegments: any;
+        bufferGeometry: any;
+        bufferAttribute: any;
+        lineBasicMaterial: any;
+        edgesGeometry: any; 
+        [elemName: string]: any;
+      }
+    }
   }
 }

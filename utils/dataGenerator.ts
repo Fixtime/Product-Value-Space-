@@ -186,21 +186,23 @@ interface ProblemCluster {
   ctxIndex: number;
   
   // Business Metrics (Fixed for the cluster)
-  impactScore: number;
-  impactLevel: ImpactLevel;
+  clusterImpactScore: number; // The "Cluster" level score
+  clusterImpactLevel: ImpactLevel;
   journeyStage: JourneyStage;
   color: string;
+  
+  // Logic to track if the "Hero" signal has been generated for this cluster
+  heroSignalGenerated: boolean;
 }
 
 export const generateData = (count: number = 5000): DataPoint[] => {
   const data: DataPoint[] = [];
   const clusters: ProblemCluster[] = [];
   const problemNames = Object.keys(PROBLEM_TEMPLATES);
-  const nameToColor: Record<string, string> = {}; // Map to ensure Name -> Color consistency
+  const nameToColor: Record<string, string> = {}; 
   
   // --- STEP 1: GENERATE 40-50 PROBLEM CLUSTERS ---
   // We need exactly 5 Very High Impact Clusters
-  // ~3.3% High Impact Clusters (approx 1-2 out of 50)
   
   const TOTAL_CLUSTERS = 45;
   const VERY_HIGH_COUNT = 5;
@@ -232,7 +234,6 @@ export const generateData = (count: number = 5000): DataPoint[] => {
     }
 
     // 3. Assign Spatial Position (Bias towards dominant segments)
-    // Dominant: 1, 3, 4, 8
     const dominantSegments = [1, 3, 4, 8];
     const useDominant = Math.random() < 0.7;
     const segIndex = useDominant 
@@ -242,7 +243,7 @@ export const generateData = (count: number = 5000): DataPoint[] => {
     // 4. Assign Name
     const name = problemNames[i % problemNames.length];
     
-    // 5. Assign Color STRICTLY based on Name (ensures all clusters with same name have same color)
+    // 5. Assign Color STRICTLY based on Name
     if (!nameToColor[name]) {
         const colorIndex = Object.keys(nameToColor).length;
         nameToColor[name] = CLUSTER_PALETTE[colorIndex % CLUSTER_PALETTE.length];
@@ -255,24 +256,53 @@ export const generateData = (count: number = 5000): DataPoint[] => {
       jobIndex: Math.floor(Math.random() * 10),
       segIndex: segIndex,
       ctxIndex: Math.floor(Math.random() * 10),
-      impactScore: impact,
-      impactLevel: getImpactLevel(impact),
+      clusterImpactScore: impact,
+      clusterImpactLevel: getImpactLevel(impact),
       journeyStage: stage,
-      color: color
+      color: color,
+      heroSignalGenerated: false
     });
   }
 
   // --- STEP 2: GENERATE SIGNALS ATTACHED TO CLUSTERS ---
+  // Goal: Ensure ONLY 1 "Very High" signal exists per Very High Cluster.
+  // The rest should be smaller "symptom" signals.
   
   for (let i = 0; i < count; i++) {
-    // Pick a random cluster
     const cluster = clusters[Math.floor(Math.random() * clusters.length)];
     
-    // 1. Spatial Position (Cluster Center + Jitter)
-    // Tight jitter for valid clusters
-    const gridJitter = 0.25; 
+    // Determine Signal Impact
+    // If Cluster is Very High Impact:
+    //   - 1st time: Generate HUGE signal (6.5+) -> This is the ROOT CAUSE and the only VERY HIGH signal
+    //   - Subsequent times: Generate small "symptom" signals (0.1 - 0.9)
     
-    // Apply organic drift
+    let signalImpact = cluster.clusterImpactScore;
+    let isRootCause = false;
+    
+    if (cluster.clusterImpactLevel === ImpactLevel.VERY_HIGH) {
+        if (!cluster.heroSignalGenerated) {
+            // Create the ONE Hero Signal
+            signalImpact = cluster.clusterImpactScore; 
+            cluster.heroSignalGenerated = true;
+            isRootCause = true;
+        } else {
+            // Create smaller symptom signals
+            signalImpact = 0.2 + Math.random() * 0.7; 
+        }
+    } else {
+        // Normal clusters
+        // Also designate one as root cause for visualization, though impact is normal
+        if (!cluster.heroSignalGenerated) {
+             isRootCause = true;
+             cluster.heroSignalGenerated = true;
+             signalImpact = cluster.clusterImpactScore;
+        } else {
+             signalImpact = Math.max(0.1, cluster.clusterImpactScore * 0.6 + (Math.random() - 0.5) * 0.2);
+        }
+    }
+
+    // 1. Spatial Position
+    const gridJitter = 0.25; 
     let driftSeg = 0, driftCtx = 0, driftJob = 0;
     if (Math.random() > 0.7) {
        const axis = Math.random();
@@ -282,7 +312,6 @@ export const generateData = (count: number = 5000): DataPoint[] => {
        else driftJob = amount;
     }
 
-    // Clamp indices
     const rawSeg = Math.max(0, Math.min(9.9, cluster.segIndex + (Math.random() - 0.5) + driftSeg));
     const rawCtx = Math.max(0, Math.min(9.9, cluster.ctxIndex + (Math.random() - 0.5) + driftCtx));
     const rawJob = Math.max(0, Math.min(9.9, cluster.jobIndex + (Math.random() - 0.5) + driftJob));
@@ -295,31 +324,24 @@ export const generateData = (count: number = 5000): DataPoint[] => {
     const finalSegIndex = Math.round(rawSeg);
     const finalCtxIndex = Math.round(rawCtx);
 
-    // 2. Specific Signal Content
     const template = cluster.templates[Math.floor(Math.random() * cluster.templates.length)];
     
     data.push({
       id: `sig-${10000 + i}`,
       position: [x, y, z],
-      
-      // Parent Info
       clusterName: cluster.name,
-      
-      // Signal Info
+      isRootCause: isRootCause,
       description: template,
       source: guessSource(template),
-      
-      // Categories
       jobCategory: JOBS_ORDERED[finalJobIndex],
       jobIndex: finalJobIndex,
       journeyStage: cluster.journeyStage,
       
-      // Metrics (Inherited)
-      impactScore: cluster.impactScore,
-      impactLevel: cluster.impactLevel,
-      color: cluster.color, // Explicitly set from CLUSTER, overriding any stage logic
+      // Use the calculated per-signal impact
+      impactScore: signalImpact,
+      impactLevel: getImpactLevel(signalImpact),
       
-      // Grid Text
+      color: cluster.color,
       segment: SEGMENTS_ORDERED[finalSegIndex],
       segmentIndex: finalSegIndex,
       context: CONTEXTS_ORDERED[finalCtxIndex],

@@ -4,7 +4,7 @@ import { generateData, SEGMENTS_ORDERED, CONTEXTS_ORDERED } from './utils/dataGe
 import { Scene } from './components/Scene';
 import { UIOverlay } from './components/UIOverlay';
 import { DataPoint, JobCategory, JourneyStage, ImpactLevel } from './types';
-import { Layers, Smartphone, Briefcase, Filter, Route, TrendingUp } from 'lucide-react';
+import { Layers, Smartphone, Briefcase, Filter, Route, TrendingUp, Activity, Zap } from 'lucide-react';
 
 const App: React.FC = () => {
   const data = useMemo(() => generateData(5000), []);
@@ -22,6 +22,47 @@ const App: React.FC = () => {
   
   // Impact Filter State (Multi-select)
   const [selectedImpactLevels, setSelectedImpactLevels] = useState<ImpactLevel[]>([]);
+
+  // Pulsar Filter State
+  const [showPulsars, setShowPulsars] = useState<boolean>(false);
+
+  // --- AGGREGATION & SORTING LOGIC ---
+  const { sortedJobs, sortedSegments, sortedContexts } = useMemo(() => {
+    const jobImpact: Record<string, number> = {};
+    const segImpact: Record<string, number> = {};
+    const ctxImpact: Record<string, number> = {};
+
+    // Aggregate Impact Scores
+    data.forEach(d => {
+      jobImpact[d.jobCategory] = (jobImpact[d.jobCategory] || 0) + d.impactScore;
+      segImpact[d.segment] = (segImpact[d.segment] || 0) + d.impactScore;
+      ctxImpact[d.context] = (ctxImpact[d.context] || 0) + d.impactScore;
+    });
+
+    // Helper to process list
+    // Returns sorted items with score and original index
+    const processList = <T,>(items: T[], impactMap: Record<string, number>, getValue: (i: T) => string) => {
+      const maxVal = Math.max(...Object.values(impactMap));
+      
+      return items.map((item, index) => {
+        const val = getValue(item);
+        const score = impactMap[val] || 0;
+        return {
+          item,
+          originalIndex: index, // Keep original index for filter logic
+          value: val,
+          score,
+          percent: maxVal > 0 ? (score / maxVal) * 100 : 0
+        };
+      }).sort((a, b) => b.score - a.score); // Descending Sort (Highest Impact First)
+    };
+
+    return {
+      sortedJobs: processList(Object.values(JobCategory), jobImpact, (c) => c),
+      sortedSegments: processList(SEGMENTS_ORDERED, segImpact, (s) => s),
+      sortedContexts: processList(CONTEXTS_ORDERED, ctxImpact, (c) => c),
+    };
+  }, [data]);
 
   const handleNodeSelect = (node: DataPoint) => {
     setSelectedId(node.id);
@@ -43,6 +84,7 @@ const App: React.FC = () => {
     setActiveClusterName(null);
     setSelectedStages([]);
     setSelectedImpactLevels([]);
+    setShowPulsars(false);
   }
 
   const toggleStage = (stage: JourneyStage) => {
@@ -65,13 +107,13 @@ const App: React.FC = () => {
     });
   };
 
-  const hasActiveFilters = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0;
+  const hasActiveFilters = activeSegmentIndex !== null || activeContextIndex !== null || activeJobCategory !== null || activeClusterName !== null || selectedStages.length > 0 || selectedImpactLevels.length > 0 || showPulsars;
 
   // Helper for job filter styling
-  const getJobButtonStyle = (cat: JobCategory, isActive: boolean) => {
+  const getFilterButtonStyle = (isActive: boolean) => {
     return isActive 
-      ? `bg-slate-600 text-white shadow-lg` 
-      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200';
+      ? `bg-slate-600 text-white shadow-lg border-slate-500` 
+      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border-transparent';
   };
 
   const IMPACT_COLORS: Record<ImpactLevel, string> = {
@@ -80,6 +122,38 @@ const App: React.FC = () => {
     [ImpactLevel.MEDIUM]: '#ca8a04',    // Yellow 600
     [ImpactLevel.LOW]: '#3b82f6',       // Blue 500
     [ImpactLevel.MICRO]: '#64748b',     // Slate 500
+  };
+
+  // Component to render the item in the list
+  const FilterItemRow = ({ label, score, percent, isActive, rank }: { label: string, score: number, percent: number, isActive: boolean, rank: number }) => {
+    const isTop3 = rank < 3;
+    const impactColor = isTop3 ? 'text-red-400' : 'text-slate-500';
+    const barColor = isTop3 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-slate-600';
+    
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-1">
+          <span className={`truncate text-[10px] font-medium ${isActive ? 'text-white' : ''} ${isTop3 && !isActive ? 'text-slate-200' : ''}`}>
+            {label}
+          </span>
+          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0 ml-2" />}
+        </div>
+        
+        {/* Minimalistic Business Impact Label */}
+        <div className="flex items-center gap-1.5" title="Влияние на бизнес">
+           <div className="flex-grow h-0.5 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full ${barColor}`} 
+                style={{ width: `${percent}%` }} 
+              />
+           </div>
+           <div className={`flex items-center gap-0.5 text-[8px] font-mono ${isActive ? 'text-slate-300' : impactColor}`}>
+              {isTop3 && <Activity size={8} />}
+              <span>{Math.round(score)}</span>
+           </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -96,6 +170,7 @@ const App: React.FC = () => {
           activeClusterName={activeClusterName}
           selectedStages={selectedStages}
           selectedImpactLevels={selectedImpactLevels}
+          showPulsars={showPulsars}
           onNodeSelect={handleNodeSelect} 
         />
       </div>
@@ -103,34 +178,36 @@ const App: React.FC = () => {
       {/* Header */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow-md">
-          Пространство Ценности
+          Product Value Space
         </h1>
-        <p className="text-slate-400 text-xs max-w-xs mt-1 drop-shadow-md">
-          <span className="opacity-70">Цвет сигнала = Кластер проблем.</span>
-        </p>
       </div>
 
       {/* Combined Filter Sidebar */}
-      <div className="absolute top-24 left-4 z-10 w-64 flex flex-col gap-3 max-h-[80vh] mt-4">
+      <div className="absolute top-24 left-4 z-10 w-64 flex flex-col gap-3 max-h-[80vh] mt-8">
         
         {/* SCROLLABLE CONTAINER FOR ALL LISTS */}
         <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1 pb-2">
             
             {/* X-AXIS: Jobs */}
             <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
-              <div className="flex items-center gap-2 mb-2 text-slate-300">
+              <div className="flex items-center gap-2 mb-3 text-slate-300 border-b border-white/5 pb-2">
                 <Briefcase size={14} className="text-slate-400" />
                 <span className="text-xs font-bold uppercase">Customer Jobs (Ось X)</span>
               </div>
               <div className="space-y-1">
-                {Object.values(JobCategory).map((cat) => (
+                {sortedJobs.map((item, index) => (
                   <button
-                    key={cat}
-                    onClick={() => setActiveJobCategory(activeJobCategory === cat ? null : cat)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${getJobButtonStyle(cat, activeJobCategory === cat)}`}
+                    key={item.value}
+                    onClick={() => setActiveJobCategory(activeJobCategory === item.value ? null : item.value as JobCategory)}
+                    className={`w-full text-left px-2 py-2 rounded border transition-all ${getFilterButtonStyle(activeJobCategory === item.value)}`}
                   >
-                    <span className="truncate">{cat}</span>
-                    {activeJobCategory === cat && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    <FilterItemRow 
+                      label={item.value} 
+                      score={item.score} 
+                      percent={item.percent} 
+                      isActive={activeJobCategory === item.value}
+                      rank={index}
+                    />
                   </button>
                 ))}
               </div>
@@ -138,23 +215,24 @@ const App: React.FC = () => {
 
             {/* Z-AXIS: Segments */}
             <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
-            <div className="flex items-center gap-2 mb-2 text-slate-300">
+            <div className="flex items-center gap-2 mb-3 text-slate-300 border-b border-white/5 pb-2">
                 <Layers size={14} className="text-blue-400" />
                 <span className="text-xs font-bold uppercase">Сегменты (Ось Z)</span>
             </div>
-            <div className="space-y-0.5">
-                {SEGMENTS_ORDERED.map((segment, index) => (
+            <div className="space-y-1">
+                {sortedSegments.map((item, index) => (
                 <button
-                    key={index}
-                    onClick={() => setActiveSegmentIndex(activeSegmentIndex === index ? null : index)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${
-                    activeSegmentIndex === index 
-                        ? 'bg-blue-600 text-white shadow-lg' 
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                    }`}
+                    key={item.value}
+                    onClick={() => setActiveSegmentIndex(activeSegmentIndex === item.originalIndex ? null : item.originalIndex)}
+                    className={`w-full text-left px-2 py-2 rounded border transition-all ${getFilterButtonStyle(activeSegmentIndex === item.originalIndex)}`}
                 >
-                    <span className="truncate">{segment}</span>
-                    {activeSegmentIndex === index && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    <FilterItemRow 
+                      label={item.value} 
+                      score={item.score} 
+                      percent={item.percent} 
+                      isActive={activeSegmentIndex === item.originalIndex}
+                      rank={index}
+                    />
                 </button>
                 ))}
             </div>
@@ -162,23 +240,24 @@ const App: React.FC = () => {
 
             {/* Y-AXIS: Contexts */}
             <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl">
-            <div className="flex items-center gap-2 mb-2 text-slate-300">
+            <div className="flex items-center gap-2 mb-3 text-slate-300 border-b border-white/5 pb-2">
                 <Smartphone size={14} className="text-purple-400" />
                 <span className="text-xs font-bold uppercase">Контексты (Ось Y)</span>
             </div>
-            <div className="space-y-0.5">
-                {CONTEXTS_ORDERED.map((context, index) => (
+            <div className="space-y-1">
+                {sortedContexts.map((item, index) => (
                 <button
-                    key={index}
-                    onClick={() => setActiveContextIndex(activeContextIndex === index ? null : index)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-[10px] transition-all flex items-center justify-between ${
-                    activeContextIndex === index 
-                        ? 'bg-purple-600 text-white shadow-lg' 
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                    }`}
+                    key={item.value}
+                    onClick={() => setActiveContextIndex(activeContextIndex === item.originalIndex ? null : item.originalIndex)}
+                    className={`w-full text-left px-2 py-2 rounded border transition-all ${getFilterButtonStyle(activeContextIndex === item.originalIndex)}`}
                 >
-                    <span className="truncate">{context}</span>
-                    {activeContextIndex === index && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    <FilterItemRow 
+                      label={item.value} 
+                      score={item.score} 
+                      percent={item.percent} 
+                      isActive={activeContextIndex === item.originalIndex}
+                      rank={index}
+                    />
                 </button>
                 ))}
             </div>
@@ -197,9 +276,27 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Right-side Filters (Impact + Stage) */}
+      {/* Right-side Filters (Impact + Stage + Pulsar) */}
       <div className="absolute bottom-6 right-6 z-10 flex flex-col gap-3">
         
+        {/* Pulsar Filter */}
+        <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl max-w-[200px]">
+          <button
+            onClick={() => setShowPulsars(!showPulsars)}
+            className={`w-full flex items-center justify-between group transition-all ${showPulsars ? 'text-yellow-400' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-md ${showPulsars ? 'bg-yellow-500/20' : 'bg-white/5 group-hover:bg-white/10'}`}>
+                    <Zap size={14} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Пульсары</span>
+            </div>
+            {showPulsars && (
+                <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold">ВКЛ</span>
+            )}
+          </button>
+        </div>
+
         {/* Impact Level Filter */}
         <div className="bg-slate-900/90 backdrop-blur border border-white/10 rounded-lg p-3 shadow-xl max-w-[200px]">
           <div className="flex items-center justify-between mb-2">

@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { DataPoint, JobCategory } from '../types';
-import { X, Activity, User, Smartphone, ArrowRight, MessageSquare, Briefcase, Route, Box, GitMerge } from 'lucide-react';
+import { X, Activity, User, Smartphone, ArrowRight, MessageSquare, Briefcase, Route, Box, GitMerge, Zap } from 'lucide-react';
 
 interface UIOverlayProps {
   selectedData: DataPoint | null;
@@ -78,6 +78,12 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Сигнал {selectedData.id}
             </h2>
+            {selectedData.isRootCause && (
+                <span className="flex items-center gap-1 text-[9px] bg-yellow-500/20 text-yellow-200 border border-yellow-500/50 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                    <Zap size={8} />
+                    Пульсар
+                </span>
+            )}
           </div>
           <button 
             onClick={onClose}
@@ -108,7 +114,9 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
               <span>Кластер проблем</span>
               {isClusterActive && <span className="ml-auto text-[9px] bg-yellow-500 text-black px-1 rounded">Активен</span>}
             </div>
-             <div className="text-sm font-medium text-white leading-tight mt-1">
+             <div className="text-sm font-medium text-white leading-tight mt-1 flex items-center gap-2">
+               {/* Visual cue that cluster has a specific color */}
+               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: selectedData.color }}></span>
                {selectedData.clusterName}
             </div>
         </button>
