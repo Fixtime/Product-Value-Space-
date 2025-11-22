@@ -22,7 +22,7 @@ export const ProductInput: React.FC<ProductInputProps> = ({ onGenerate, isGenera
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="absolute top-4 right-4 z-50 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all font-medium text-sm backdrop-blur-md border border-indigo-400/30"
+        className="absolute top-4 right-4 z-30 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all font-medium text-sm backdrop-blur-md border border-indigo-400/30"
       >
         <Sparkles size={16} />
         Мой продукт

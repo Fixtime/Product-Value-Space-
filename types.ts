@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum JobCategory {
@@ -79,6 +80,34 @@ export interface ProductConfig {
   segments: string[]; // 10 items
   contexts: string[]; // 10 items
   clusters: GeneratedCluster[]; // ~40-50 items
+}
+
+// --- Cluster Details & Copilot ---
+
+export interface Hypothesis {
+  type: 'Quick Win' | 'Balanced' | 'Revolutionary';
+  text: string; // "IF... THEN... BECAUSE..."
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export interface ClusterDetailsData {
+  clusterName: string;
+  totalImpact: number;
+  relativeImpactPercent: number;
+  topSegments: { name: string; impact: number }[];
+  topContexts: { name: string; impact: number }[];
+  topJobs: { name: string; impact: number }[];
+  pulsarSignal: DataPoint | null;
+  topSignals: DataPoint[];
+  hypotheses: {
+    quickWins: Hypothesis[];
+    balanced: Hypothesis[];
+    revolutionary: Hypothesis[];
+  };
 }
 
 // Augment the global JSX.IntrinsicElements (for older React types / global JSX)

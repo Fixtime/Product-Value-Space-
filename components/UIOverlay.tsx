@@ -75,7 +75,7 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
   const isClusterActive = activeClusterName === selectedData.clusterName;
 
   return (
-    <div className="absolute top-4 right-4 w-96 animate-fade-in z-20 max-h-[95vh] overflow-y-auto custom-scrollbar">
+    <div className="absolute top-4 right-4 w-96 animate-fade-in z-40 max-h-[95vh] overflow-y-auto custom-scrollbar">
       <div className="relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/80 p-6 text-slate-200 shadow-2xl backdrop-blur-xl transition-all">
         
         {/* Decorative Glow */}

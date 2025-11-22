@@ -36,7 +36,15 @@ const SegmentSlice: React.FC<{ index: number }> = ({ index }) => {
         <edgesGeometry args={[new THREE.BoxGeometry(20, 20, 2)]} />
         <lineBasicMaterial color="#ffffff" opacity={0.3} transparent />
       </lineSegments>
-      <Text position={[11, 9, 0]} fontSize={0.5} color="#ffffff" anchorX="left" rotation={[0, -Math.PI / 4, 0]}>
+      <Text 
+        position={[11, 9, 0]} 
+        fontSize={0.6} 
+        color="#ffffff" 
+        anchorX="left" 
+        rotation={[0, -Math.PI / 4, 0]}
+        outlineWidth={0.04}
+        outlineColor="#000000"
+      >
         {segmentName}
       </Text>
     </group>
@@ -59,7 +67,15 @@ const ContextSlice: React.FC<{ index: number }> = ({ index }) => {
         <edgesGeometry args={[new THREE.BoxGeometry(20, 2, 20)]} />
         <lineBasicMaterial color="#a855f7" opacity={0.3} transparent />
       </lineSegments>
-      <Text position={[0, 0, 11]} fontSize={0.5} color="#a855f7" anchorX="center" rotation={[-Math.PI / 4, 0, 0]}>
+      <Text 
+        position={[0, 0, 11]} 
+        fontSize={0.6} 
+        color="#a855f7" 
+        anchorX="center" 
+        rotation={[-Math.PI / 4, 0, 0]}
+        outlineWidth={0.04}
+        outlineColor="#000000"
+      >
         {contextName}
       </Text>
     </group>
@@ -85,7 +101,14 @@ const JobSlice: React.FC<{ category: string }> = ({ category }) => {
         <edgesGeometry args={[new THREE.BoxGeometry(2, 20, 20)]} />
         <lineBasicMaterial color={color} opacity={0.3} transparent />
       </lineSegments>
-      <Text position={[0, 11, 0]} fontSize={0.5} color={color} anchorY="bottom">
+      <Text 
+        position={[0, 11, 0]} 
+        fontSize={0.6} 
+        color={color} 
+        anchorY="bottom"
+        outlineWidth={0.04}
+        outlineColor="#000000"
+      >
         {category}
       </Text>
     </group>
@@ -265,10 +288,38 @@ const SceneContent: React.FC<SceneProps> = ({
 
       <FullCage isFiltered={isFiltered} />
 
+      {/* Static Axis Labels - Moved further out (14) to avoid overlap with active filters (11) */}
       <group>
-        <Text position={[11, 0, 0]} fontSize={0.6} color="#ffffff" anchorX="left">Customer Job (X)</Text>
-        <Text position={[0, 11, 0]} fontSize={0.6} color="#ffffff" anchorY="bottom">Контекст (Y)</Text>
-        <Text position={[0, 0, 11]} fontSize={0.6} color="#ffffff" anchorX="right">Сегмент (Z)</Text>
+        <Text 
+          position={[14, 0, 0]} 
+          fontSize={0.8} 
+          color="#ffffff" 
+          anchorX="left" 
+          outlineWidth={0.05} 
+          outlineColor="#000000"
+        >
+          Customer Job (X)
+        </Text>
+        <Text 
+          position={[0, 14, 0]} 
+          fontSize={0.8} 
+          color="#ffffff" 
+          anchorY="bottom" 
+          outlineWidth={0.05} 
+          outlineColor="#000000"
+        >
+          Контекст (Y)
+        </Text>
+        <Text 
+          position={[0, 0, 14]} 
+          fontSize={0.8} 
+          color="#ffffff" 
+          anchorX="right" 
+          outlineWidth={0.05} 
+          outlineColor="#000000"
+        >
+          Сегмент (Z)
+        </Text>
       </group>
 
       {/* Visual Slice Highlights */}
